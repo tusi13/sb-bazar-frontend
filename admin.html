@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S.B Enterprises - Admin Control Panel with AI Suite</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- SheetJS Excel Library -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- jsPDF & AutoTable Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900 font-sans antialiased text-xs font-semibold" x-data="adminApp()" x-init="initAdminSystem()">
+
+    <!-- AUTHENTICATION GATE (LOGIN, REGISTRATION & DUAL-CHANNEL PASSWORD RECOVERY) -->
+    <div x-show="!isAdminLoggedIn" class="fixed inset-0 z-[99999] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4" x-cloak>
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+            <div class="text-center space-y-1">
+                <div class="w-12 h-12 bg-teal-100 text-teal-800 rounded-full flex items-center justify-center mx-auto text-xl font-black mb-1">🔐</div>
+                <h2 class="text-base font-black text-slate-900 uppercase tracking-wide" 
+                    x-text="authMode === 'login' ? 'Admin / Staff Authorization' : (authMode === 'register' ? 'Staff Registration' : 'Account Password Recovery')"></h2>
+                <p class="text-slate-500 text-[11px]" 
+                   x-text="authMode === 'login' ? 'Enter your authorized SBE Admin/Staff credentials.' : (authMode === 'register' ? 'Create operational staff account credentials.' : 'Verify with WhatsApp or Email OTP to reset password.')"></p>
+            </div>
+
+            <!-- 1. LOGIN FORM -->
+            <form x-show="authMode === 'login'" @submit.prevent="authenticateAdmin()" class="space-y-3">
+                <div class="space-y-1">
+                    <label class="block text-[10px] uppercase font-bold text-slate-500">Authorized Email / 10-Digit Mobile</label>
+                    <input type="text" x-model="adminAuth.email" required placeholder="sbe.vikash@gmail.com" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none focus:bg-white focus:border-teal-600 text-xs">
+                </div>
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center">
+                        <label class="block text-[10px] uppercase font-bold text-slate-500">Password</label>
+                        <button type="button" @click="authMode = 'forgot'; otpSent = false;" class="text-[11px] text-teal-700 hover:underline font-bold cursor-pointer">Forgot Password?</button>
+                    </div>
+                    <input type="password" x-model="adminAuth.password" required placeholder="••••••••" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none focus:bg-white focus:border-teal-600 text-xs">
+                </div>
+                <button type="submit" class="w-full bg-teal-800 hover:bg-teal-900 text-white font-black py-3 rounded-xl uppercase tracking-wider text-xs shadow-md transition cursor-pointer">
+                    Authorize Access
+                </button>
+            </form>
+
+            <!-- 2. REGISTRATION FORM (WITH WHATSAPP INSTRUCTION) -->
+            <form x-show="authMode === 'register'" @submit.prevent="registerNewStaff()" class="space-y-3" style="display: none;">
+                <div class="space-y-1">
+                    <label class="block text-[10px] uppercase font-bold text-slate-500">Full Name *</label>
+                    <input type="text" x-model="regForm.name" required placeholder="Staff Full Name" class="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none focus:border-teal-600">
+                </div>
+                <div class="space-y-1">
+                    <label class="block text-[10px] uppercase font-bold text-slate-500">Email Address *</label>
+                    <input type="email" x-model="regForm.email" required placeholder="staff@dentistbazar.com" class="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none focus:border-teal-600">
+                </div>
+                
+                <!-- WHATSAPP NUMBER HIGHLIGHT -->
+                <div class="space-y-1 bg-emerald-50/70 border border-emerald-300 p-2.5 rounded-xl">
+                    <div class="flex justify-between items-center">
+                        <label class="block text-[10px] uppercase font-black text-emerald-900">10-Digit WhatsApp Mobile *</label>
+                        <span class="text-[9px] font-black text-emerald-700">💬 Mandatory</span>
+                    </div>
+                    <input type="tel" x-model="regForm.phone" required maxlength="10" pattern="[6-9][0-9]{9}" placeholder="9876543210" class="w-full p-2.5 border border-emerald-300 rounded-xl bg-white text-xs font-mono font-bold outline-none focus:border-emerald-600">
+                    <p class="text-[9px] text-emerald-800 leading-tight">
+                        ⚠️ Enter your active <b>WhatsApp mobile number</b>. All security OTPs for password recovery will be sent here.
+                    </p>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-[10px] uppercase font-bold text-slate-500">Password *</label>
+                    <input type="password" x-model="regForm.password" required minlength="4" placeholder="••••••••" class="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none focus:border-teal-600">
+                </div>
+                <button type="submit" class="w-full bg-[#fb641b] hover:bg-[#e0530f] text-white font-black py-3 rounded-xl uppercase tracking-wider text-xs shadow-md transition cursor-pointer">
+                    Register Staff Account
+                </button>
+            </form>
+
+            <!-- 3. FORGOT PASSWORD -->
+            <div x-show="authMode === 'forgot'" class="space-y-3" style="display: none;">
+                <div x-show="!otpSent" class="space-y-3">
+                    <p class="text-slate-600 text-[11px] leading-relaxed">
+                        Enter your registered staff email or WhatsApp mobile number to receive a 6-digit verification code.
+                    </p>
+                    <input type="text" x-model="adminResetForm.identity" required placeholder="Staff WhatsApp Mobile or Email" class="w-full p-2.5 border rounded-xl bg-slate-50 text-xs font-bold outline-none focus:border-teal-600">
+                    <button type="button" @click="requestAdminOtp()" class="w-full bg-[#fb641b] hover:bg-[#e0530f] text-white py-2.5 font-black rounded-xl text-xs uppercase cursor-pointer shadow transition">
+                        Generate Verification Code ➔
+                    </button>
+                </div>
+
+                <form x-show="otpSent" @submit.prevent="verifyAdminOtpAndReset()" class="space-y-2.5">
+                    <div class="bg-teal-50 border border-teal-200 p-2.5 rounded-xl space-y-1.5 text-[11px]">
+                        <p class="font-bold text-teal-900">✅ Code sent to your Email!</p>
+                        <p class="text-slate-600 text-[10px]">To confirm or view via WhatsApp immediately:</p>
+                        <button type="button" @click="openAdminWhatsAppLink()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-1.5 rounded-lg text-[10px] uppercase flex items-center justify-center gap-1 shadow-xs">
+                            <span>💬</span> Open WhatsApp Message
+                        </button>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-slate-500 mb-0.5">Enter 6-Digit OTP *</label>
+                        <input type="text" x-model="adminResetForm.otp" required maxlength="6" placeholder="e.g. 123456" class="w-full p-2.5 border rounded-xl bg-slate-50 text-xs font-mono tracking-widest text-center font-black outline-none focus:border-teal-600">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-slate-500 mb-0.5">New Password *</label>
+                        <input type="password" x-model="adminResetForm.new_password" required minlength="4" placeholder="••••••••" class="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none focus:border-teal-600">
+                    </div>
+
+                    <button type="submit" class="w-full bg-teal-800 hover:bg-teal-900 text-white py-2.5 font-black rounded-xl text-xs uppercase cursor-pointer shadow">
+                        Save New Password
+                    </button>
+
+                    <button type="button" @click="otpSent = false" class="w-full text-slate-500 hover:text-slate-800 text-[10px] text-center font-bold">
+                        ← Change Number / Resend Code
+                    </button>
+                </form>
+            </div>
+
+            <!-- TOGGLE BUTTON -->
+            <div class="text-center pt-2 border-t space-y-1">
+                <template x-if="authMode === 'login'">
+                    <button type="button" @click="authMode = 'register'" class="text-teal-700 hover:underline text-[11px] font-bold cursor-pointer">New staff? Register account</button>
+                </template>
+                <template x-if="authMode === 'register' || authMode === 'forgot'">
+                    <button type="button" @click="authMode = 'login'" class="text-teal-700 hover:underline text-[11px] font-bold cursor-pointer">Already have an account? Login</button>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- ENQUIRY NOTIFICATION MODAL QUEUE -->
+    <div x-show="showEnquiryQueueModal" class="fixed inset-0 z-[10005] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4" style="display: none;" x-cloak x-transition>
+        <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-200">
+            <header class="bg-amber-500 text-slate-950 px-5 py-3.5 flex justify-between items-center font-black">
+                <div class="flex items-center gap-2 text-xs uppercase tracking-wider">
+                    <span>🔔</span> <span>Incoming Product Enquiries Queue</span>
+                    <span class="bg-slate-950 text-amber-400 px-2 py-0.5 rounded-full text-[10px]" x-text="enquiriesList.length">0</span>
+                </div>
+                <button @click="showEnquiryQueueModal = false" class="text-slate-950 hover:text-white font-bold text-sm cursor-pointer">✕ Close</button>
+            </header>
+            <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+                <p x-show="enquiriesList.length === 0" class="text-slate-400 text-center py-12 text-xs italic">No pending product enquiries in the queue! All caught up. 🎉</p>
+                <template x-for="(enq, idx) in enquiriesList" :key="enq.id">
+                    <div class="bg-amber-50/60 border border-amber-200 rounded-xl p-4 space-y-3 shadow-xs relative">
+                        <div class="flex justify-between items-start border-b border-amber-200 pb-2">
+                            <div>
+                                <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full uppercase" x-text="`Lead #${idx + 1} in Queue`"></span>
+                                <h4 class="font-black text-slate-900 text-sm mt-1" x-text="enq.name"></h4>
+                                <p class="text-[10px] text-slate-400 font-mono" x-text="formatDateDisplay(enq.created_at)"></p>
+                            </div>
+                            <a :href="`tel:${enq.phone}`" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 shadow-xs">
+                                <span>📞</span> <span x-text="enq.phone"></span>
+                            </a>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 bg-white p-3 rounded-lg border border-amber-100 text-xs">
+                            <div>
+                                <span class="text-[9px] uppercase font-bold text-slate-400 block">Requested Product / Query</span>
+                                <p class="font-bold text-teal-800" x-text="enq.product_name || 'General Product Enquiry'"></p>
+                            </div>
+                            <div>
+                                <span class="text-[9px] uppercase font-bold text-slate-400 block">Required Qty / Remarks</span>
+                                <p class="font-mono font-black text-slate-900" x-text="enq.quantity || 1"></p>
+                            </div>
+                        </div>
+                        <div class="flex justify-end pt-1">
+                            <button @click="resolveAndRemoveEnquiry(enq.id)" class="bg-slate-900 hover:bg-slate-800 text-white font-black px-4 py-2 rounded-xl text-[10px] uppercase tracking-wide cursor-pointer shadow-md">
+                                ✅ Mark Handled & Clear from Queue
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXPANDED MULTI-UNIT SERIAL NUMBER ASSIGNMENT MODAL -->
+    <div x-show="showSerialModal" class="fixed inset-0 z-[10010] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4" style="display: none;" x-cloak x-transition>
+        <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-200">
+            <header class="bg-teal-800 text-white px-5 py-3.5 flex justify-between items-center font-black">
+                <h3 class="text-xs uppercase tracking-wider">Assign Unique Serial Numbers per Unit</h3>
+                <button @click="showSerialModal = false" class="text-white font-bold text-sm cursor-pointer">✕</button>
+            </header>
+            <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+                <p class="text-slate-600 text-xs">Provide a unique serial number for each individual unit ordered in <span class="font-mono font-bold text-slate-900" x-text="`#SBE-${activeOrderForSerial?.id}`"></span>:</p>
+                
+                <div class="space-y-4">
+                    <template x-for="(group, gIdx) in serialModalGroups" :key="gIdx">
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+                            <div class="flex justify-between items-center border-b pb-1.5">
+                                <span class="font-black text-teal-900 text-xs" x-text="group.name"></span>
+                                <span class="bg-teal-100 text-teal-900 font-bold px-2 py-0.5 rounded text-[10px]" x-text="`Total Qty: ${group.qty}`"></span>
+                            </div>
+                            
+                            <div class="space-y-2 pt-1">
+                                <template x-for="unitIndex in group.qty" :key="unitIndex">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[10px] font-mono text-slate-500 font-bold w-14 shrink-0" x-text="`Unit #${unitIndex}:`"></span>
+                                        <input type="text" 
+                                               x-model="group.serialList[unitIndex - 1]" 
+                                               placeholder="Enter unique serial no..." 
+                                               class="flex-1 p-2 border rounded-lg bg-white text-xs font-mono uppercase outline-none focus:border-teal-600">
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <button @click="saveOrderSerialNumbers()" class="w-full bg-teal-700 hover:bg-teal-800 text-white font-black py-3 rounded-xl uppercase text-xs shadow-md cursor-pointer">
+                    Save & Update Order Status
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SAFETY MODAL: DELETE PRODUCT WARNING -->
+    <div x-show="deleteProductModal.show" class="fixed inset-0 z-[10000] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4" style="display: none;" x-cloak x-transition>
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 border border-slate-200 shadow-2xl" @click.outside="deleteProductModal.show = false">
+            <div class="w-12 h-12 rounded-full bg-red-100 text-red-600 mx-auto flex items-center justify-center text-xl font-black">⚠️</div>
+            <div class="space-y-1">
+                <h3 class="text-sm font-black text-slate-900 uppercase">Delete Product?</h3>
+                <p class="text-slate-500 text-xs font-medium leading-relaxed">
+                    Are you sure you want to delete <span class="font-black text-slate-900" x-text="deleteProductModal.productName"></span> from the catalog? This action cannot be undone.
+                </p>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-2">
+                <button @click="deleteProductModal.show = false" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl uppercase text-xs cursor-pointer">Cancel</button>
+                <button @click="executeProductDeletion()" class="bg-red-600 hover:bg-red-700 text-white font-black py-2.5 rounded-xl uppercase text-xs shadow-md cursor-pointer">Confirm Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="min-h-screen flex flex-col" x-show="isAdminLoggedIn" x-cloak>
+        <!-- Top Navigation Header -->
+        <header class="bg-slate-800 text-white py-4 px-6 shadow-md flex flex-col sm:flex-row justify-between items-center gap-4 sticky top-0 z-50">
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-3 cursor-pointer" @click="currentView = 'products'">
+                    <img src="logo.png" alt="SBE" class="w-10 h-10 object-contain bg-white rounded-lg p-0.5" onerror="this.style.display='none'">
+                    <div>
+                        <h1 class="text-base font-bold tracking-tight">S.B Enterprises</h1>
+                        <p class="text-[10px] text-teal-400 font-bold truncate max-w-[220px]" x-text="'👤 ' + (currentAdminUser?.name || currentAdminUser?.email || 'Admin User')"></p>
+                    </div>
+                </div>
+                <nav class="flex items-center gap-2">
+                    <button @click="currentView = 'products'" :class="currentView === 'products' ? 'bg-slate-700 text-teal-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-4 py-2 rounded-xl text-xs transition cursor-pointer">📦 Products Catalog</button>
+                    <button @click="currentView = 'orders'" :class="currentView === 'orders' ? 'bg-slate-700 text-teal-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-4 py-2 rounded-xl text-xs transition cursor-pointer">📋 View Customer Orders</button>
+                    <button @click="currentView = 'banners'" :class="currentView === 'banners' ? 'bg-slate-700 text-amber-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-4 py-2 rounded-xl text-xs transition cursor-pointer">🎨 Banners Studio</button>
+                </nav>
+            </div>
+            
+            <div class="flex items-center gap-3 flex-wrap justify-end">
+                <button @click="loadAdminData()" class="bg-teal-700 hover:bg-teal-600 text-white font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer">
+                    <span>🔄</span> <span>Refresh Now</span>
+                </button>
+
+                <button @click="showEnquiryQueueModal = true; fetchAdminEnquiries();" class="bg-amber-500 hover:bg-amber-600 transition text-slate-950 font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-2 shadow-sm cursor-pointer animate-pulse">
+                    <span>🔔 New Enquiries:</span> 
+                    <span class="bg-slate-950 text-amber-400 font-black px-2 py-0.5 rounded-full text-[10px]" x-text="enquiriesList.length">0</span>
+                </button>
+
+                <!-- TICKETS & REQUESTS BADGE -->
+                <div @click="currentView = 'orders'; orderStatusFilter = 'CANCELLATION_REQUESTED';" class="bg-amber-600 hover:bg-amber-700 transition text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer">
+                    ⚠️ Tickets / Requests: 
+                    <span class="bg-white text-amber-900 font-black px-2 py-0.5 rounded-full" x-text="getCancellationRequestsCount()">0</span>
+                </div>
+
+                <div @click="currentView = 'orders'; orderStatusFilter = 'PLACED';" class="bg-red-600 hover:bg-red-700 transition text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer">
+                    🚨 New Orders: 
+                    <span class="bg-white text-red-700 font-black px-2 py-0.5 rounded-full" x-text="getPendingOrdersCount()">0</span>
+                </div>
+                
+                <button @click="logoutAdmin()" class="bg-red-500 hover:bg-red-600 text-white font-bold px-3 py-2 rounded-xl text-xs cursor-pointer">🚪 Logout</button>
+            </div>
+        </header>
+
+        <!-- ADD / EDIT PRODUCT MODAL -->
+        <div x-show="showAddProductModal" class="fixed inset-0 z-[9990] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" style="display: none;" x-cloak x-transition>
+            <div class="bg-white rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden border border-slate-200 my-8">
+                <header class="bg-teal-800 text-white px-6 py-4 flex justify-between items-center">
+                    <h3 class="text-xs font-black uppercase tracking-wider text-amber-300" x-text="productForm.id ? '✏️ Edit Catalog Product' : '✨ Register New Product Asset'"></h3>
+                    <button @click="showAddProductModal = false" class="text-white font-bold text-sm cursor-pointer">✕ Close</button>
+                </header>
+
+                <form @submit.prevent="saveProductPipeline()" class="p-6 space-y-4 max-h-[80vh] overflow-y-auto text-slate-800">
+                    <div class="bg-teal-50 p-3.5 rounded-xl border border-teal-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+                        <div>
+                            <span class="font-black text-teal-900 text-xs block">🤖 AI Product Suite & Smart Margin Analyzer</span>
+                            <span class="text-[10px] text-teal-700">Auto-generates descriptions and calculates ideal wholesale margins.</span>
+                        </div>
+                        <div class="flex gap-2 shrink-0">
+                            <button type="button" @click="aiAutoFillProduct()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-3 py-1.5 rounded-lg text-[11px] uppercase cursor-pointer shadow-xs">✨ AI Auto-Fill</button>
+                            <button type="button" @click="aiSmartMarginAnalyzer()" class="bg-teal-700 hover:bg-teal-800 text-white font-black px-3 py-1.5 rounded-lg text-[11px] uppercase cursor-pointer shadow-xs">📊 AI Margin Check</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="sm:col-span-2">
+                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Product Full Name *</label>
+                            <input type="text" x-model="productForm.name" required placeholder="e.g. Poratable DC Xray / Doctor Head Cap" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Brand / Company Name *</label>
+                            <input type="text" x-model="productForm.company" required placeholder="e.g. S.B. Medical" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Price (INR ₹ Listed Gross) *</label>
+                            <input type="number" step="0.01" x-model.number="productForm.price" required placeholder="1866" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none font-bold">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Applicable GST Tax Rate Slab *</label>
+                            <select x-model.number="productForm.gst_rate" required class="w-full p-2.5 border rounded-xl bg-slate-50 font-bold outline-none cursor-pointer">
+                                <option value="5">5% (Essential Dental Consumables)</option>
+                                <option value="12">12% (Standard Medical Devices / Instruments)</option>
+                                <option value="18">18% (Electronic Clinical Equipment / X-Rays)</option>
+                                <option value="28">28% (Luxury High-End Machinery)</option>
+                                <option value="0">0% (Tax Exempted Supplies)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Category Directory *</label>
+                            <select x-model="productForm.directory_id" required class="w-full p-2.5 border rounded-xl bg-slate-50 font-bold outline-none">
+                                <option value="">Select Category...</option>
+                                <template x-for="cat in dynamicDirectories" :key="cat.id">
+                                    <option :value="cat.id" x-text="cat.name"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Available Stock Qty *</label>
+                            <input type="number" x-model.number="productForm.stock" required class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none font-bold">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">HSN Tax Code</label>
+                            <input type="text" x-model="productForm.hsn" placeholder="e.g. 90184900" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none font-mono">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Warranty Term</label>
+                            <select x-model="productForm.warranty" class="w-full p-2.5 border rounded-xl bg-slate-50 font-bold text-xs outline-none cursor-pointer">
+                                <option value="NA">No Warranty (N/A)</option>
+                                <option value="1-Year Comprehensive Manufacturer Warranty">1-Year Comprehensive Manufacturer Warranty</option>
+                                <option value="2-Years Extended Equipment Guarantee">2-Years Extended Equipment Guarantee</option>
+                                <option value="6-Months Replacement Warranty">6-Months Replacement Warranty</option>
+                            </select>
+                        </div>
+
+                        <!-- MANUFACTURE & EXPIRY DATES -->
+                        <div>
+                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Manufacture Date (Mfg)</label>
+                            <input type="date" x-model="productForm.mfg_date" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Expiry Date (Exp - Optional)</label>
+                            <input type="date" x-model="productForm.exp_date" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
+                        </div>
+
+                        <div class="sm:col-span-2 space-y-3 pt-2 border-t">
+                            <h4 class="font-black text-slate-800 uppercase text-xs">📋 Product Details & Specifications</h4>
+                            <div>
+                                <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">What's in the Box</label>
+                                <input type="text" x-model="productForm.what_in_box" placeholder="e.g. 1 x Main Unit, 1 x Charger" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Comprehensive Description</label>
+                                <textarea rows="3" x-model="productForm.description" placeholder="Write detailed clinical description..." class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none resize-none"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- AUTOMATIC MULTI-IMAGE UPLOAD -->
+                        <div class="sm:col-span-2 space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <label class="block text-[10px] uppercase font-black text-teal-900 tracking-wider">📁 Upload Product Photos (Multiple)</label>
+                                    <span class="text-[10px] text-slate-500">Select 1 or more pictures from your computer (auto-saved to local server)</span>
+                                </div>
+                            </div>
+                            
+                            <input type="file" id="productFilesInput" multiple accept="image/*" @change="previewSelectedFiles($event)" class="w-full text-xs text-slate-500 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-teal-700 file:text-white file:font-bold hover:file:bg-teal-800 cursor-pointer">
+
+                            <!-- Selected Images Live Previews -->
+                            <div class="flex flex-wrap gap-2 pt-2" x-show="selectedFilePreviews.length > 0">
+                                <template x-for="(preview, idx) in selectedFilePreviews" :key="idx">
+                                    <div class="relative w-14 h-14 rounded-lg border border-slate-300 overflow-hidden shadow-xs bg-white">
+                                        <img :src="preview" class="w-full h-full object-cover">
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pt-4 border-t flex justify-end gap-2">
+                        <button type="button" @click="showAddProductModal = false" class="bg-slate-200 px-5 py-2 rounded-xl text-xs cursor-pointer">Cancel</button>
+                        <button type="submit" class="bg-teal-700 text-white font-black px-7 py-2 rounded-xl text-xs cursor-pointer">Save Product</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+            
+            <!-- 1. PRODUCTS CATALOG VIEW -->
+            <div x-show="currentView === 'products'" class="grid grid-cols-1 lg:grid-cols-4 gap-6" x-transition>
+                
+                <!-- LEFT SIDEBAR ACTION CARDS -->
+                <div class="lg:col-span-1 space-y-4">
+                    <!-- Card 1: Add Product & Inventory Export -->
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                        <button @click="openAddProductModal()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-md cursor-pointer flex items-center justify-center gap-2 text-xs uppercase tracking-wide">
+                            ✨ + Add New Product
+                        </button>
+                        <button @click="exportFullInventoryToExcel()" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-2.5 px-3 rounded-xl transition text-[11px] uppercase tracking-wide cursor-pointer flex items-center justify-center gap-1.5 shadow-xs">
+                            📊 Download Full Inventory (.XLSX)
+                        </button>
+                    </div>
+
+                    <!-- Card 2: Bulk Excel Import -->
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                        <h2 class="text-sm font-black text-slate-700 uppercase tracking-wider border-b pb-2">📦 Bulk Excel Import</h2>
+                        <button @click="downloadExcelTemplate()" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold py-2 px-3 rounded-xl transition text-[11px] uppercase tracking-wide cursor-pointer flex items-center justify-center gap-1.5 shadow-xs">
+                            📥 Download Template
+                        </button>
+                        <div class="space-y-1 pt-1">
+                            <label class="block text-[10px] uppercase font-bold text-slate-500">Upload Filled Excel File</label>
+                            <input type="file" id="excelUploadInput" accept=".xlsx, .xls" @change="handleExcelUpload($event)" class="w-full text-[10px] text-slate-500 file:py-1.5 file:px-2.5 file:rounded-xl file:border-0 file:bg-teal-100 file:text-teal-900 font-bold cursor-pointer">
+                        </div>
+                    </div>
+
+                    <!-- CARD 3: CATEGORY MANAGER WITH COLLAPSIBLE EMOJI DROPDOWN SELECTOR -->
+                    <aside class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm h-fit space-y-4" x-data="{ showCategoryManager: false, emojiDropdownOpen: false }">
+                        <div class="flex justify-between items-center border-b pb-2">
+                            <h2 class="text-sm font-black text-slate-700 uppercase tracking-wider">Category Manager</h2>
+                            <button @click="showCategoryManager = !showCategoryManager" class="text-teal-700 hover:underline font-bold text-[11px] cursor-pointer">
+                                <span x-text="showCategoryManager ? 'Hide List ▴' : 'Manage Existing ▾'"></span>
+                            </button>
+                        </div>
+                    
+                        <!-- Add Category Form -->
+                        <form @submit.prevent="submitNewDirectory()" class="space-y-3 text-xs font-semibold text-slate-600 relative">
+                            <div>
+                                <label class="block mb-1 uppercase tracking-wide font-bold">Category Icon *</label>
+                                
+                                <!-- Clickable Input Box to Toggle Dropdown -->
+                                <div @click="emojiDropdownOpen = !emojiDropdownOpen" class="w-full p-3 border rounded-xl bg-slate-50 text-center cursor-pointer flex items-center justify-between shadow-xs hover:border-teal-600 transition">
+                                    <span class="text-xs font-bold text-slate-500">Selected Icon:</span>
+                                    <span class="text-xl font-mono" x-text="dirForm.icon || '💺'"></span>
+                                    <span class="text-slate-400 text-[10px]" x-text="emojiDropdownOpen ? '▲' : '▼'"></span>
+                                </div>
+                    
+                                <!-- Absolute Dropdown Grid (Shows only when emojiDropdownOpen is true) -->
+                                <div x-show="emojiDropdownOpen" 
+                                     @click.outside="emojiDropdownOpen = false" 
+                                     x-cloak 
+                                     x-transition 
+                                     class="absolute left-0 right-0 mt-1 bg-white border-2 border-teal-600 rounded-2xl shadow-2xl p-3 z-50 grid grid-cols-4 gap-2">
+                                    <template x-for="emo in ['💺', '📦', '🦷', '💉', '🔬', '🛡️', '✨', '🩹', '🩺', '⚡', '💊', '🥽', '🏥', '🔬', '🧪', '📋', '⚙️', '🌟']">
+                                        <button type="button" 
+                                                @click="dirForm.icon = emo; emojiDropdownOpen = false;" 
+                                                class="p-2.5 hover:bg-teal-100 rounded-xl text-xl transition text-center cursor-pointer border border-slate-100 bg-slate-50" 
+                                                x-text="emo"></button>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block mb-1 uppercase tracking-wide font-bold">Category Name *</label>
+                                <input type="text" x-model="dirForm.name" required placeholder="e.g., Orthodontics" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none focus:border-teal-600">
+                            </div>
+
+                            <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 rounded-xl transition shadow-sm cursor-pointer uppercase text-[10px] tracking-wider">
+                                ✨ Add Category
+                            </button>
+                        </form>
+                    
+                        <!-- Collapsible Existing Categories List -->
+                        <div x-show="showCategoryManager" x-transition.opacity class="border-t pt-3 space-y-2" x-cloak>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400">Existing Categories (<span x-text="dynamicDirectories.length"></span>)</label>
+                            <div class="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                                <template x-for="cat in dynamicDirectories" :key="cat.id">
+                                    <div class="flex items-center justify-between bg-slate-50 border p-2 rounded-xl text-xs">
+                                        <div class="flex items-center gap-2 truncate">
+                                            <span class="text-base" x-text="cat.icon || '📦'"></span>
+                                            <span class="font-bold text-slate-800 truncate" x-text="cat.name"></span>
+                                        </div>
+                                        <button @click="deleteCategoryRecord(cat.id)" class="text-red-500 hover:text-red-700 font-bold px-2 py-0.5 text-[10px] uppercase bg-red-50 border border-red-200 rounded-lg cursor-pointer shrink-0">Delete</button>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+
+                <!-- RIGHT MAIN AREA: ACTIVE CATALOG TABLE -->
+                <section class="lg:col-span-3 bg-white p-5 rounded-2xl border shadow-sm overflow-hidden flex flex-col">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-sm font-black text-slate-700 uppercase tracking-wider">
+                            Active Catalog (<span x-text="products.length"></span>)
+                        </h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-400 uppercase tracking-wider font-bold border-b border-slate-100">
+                                    <th class="p-3">Preview</th>
+                                    <th class="p-3">Product Name & Company</th>
+                                    <th class="p-3">Category</th>
+                                    <th class="p-3">Price</th>
+                                    <th class="p-3">GST Slab</th>
+                                    <th class="p-3 text-center">Stock</th>
+                                    <th class="p-3 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="item in products" :key="item.id">
+                                    <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition font-medium text-slate-700">
+                                        <td class="p-3">
+                                            <div class="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden border flex items-center justify-center">
+                                                <img :src="getSinglePrimaryImageUrl(item)" class="w-full h-full object-contain mix-blend-multiply" onerror="this.src='https://placehold.co/40?text=No+Img'">
+                                            </div>
+                                        </td>
+                                        <td class="p-3">
+                                            <p class="font-bold text-slate-900" x-text="item.name"></p>
+                                            <p class="text-[10px] text-teal-700 font-bold" x-text="'🏢 ' + (item.company || 'General Brand')"></p>
+                                        </td>
+                                        <td class="p-3 text-slate-500 font-medium" x-text="item.category_name || 'General'"></td>
+                                        <td class="p-3 font-extrabold text-teal-700" x-text="'₹' + formatCurrency(item.price)"></td>
+                                        <td class="p-3">
+                                            <span class="bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded font-bold font-mono text-[10px]" x-text="(item.gst_rate || 12) + '% GST'"></span>
+                                        </td>
+                                        <td class="p-3 text-center font-bold">
+                                            <span :class="Number(item.stock ?? 0) <= 5 ? 'bg-amber-100 text-amber-900 animate-pulse' : 'bg-emerald-100 text-emerald-800'" class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase" x-text="item.stock"></span>
+                                        </td>
+                                        <td class="p-3 text-center space-x-1">
+                                            <button @click="editProductRecord(item)" class="bg-teal-50 text-teal-800 font-bold py-1 px-2.5 rounded-lg border border-teal-200 cursor-pointer">Edit</button>
+                                            <button @click="confirmDeleteProduct(item)" class="bg-red-50 text-red-600 font-bold py-1 px-2.5 rounded-lg border border-red-200 cursor-pointer">Delete</button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 2. ORDERS VIEW WITH RECONCILIATION FILTER & BULK REFUND UPLOAD WITH CREDIT DATES -->
+            <div x-show="currentView === 'orders'" class="bg-white border p-6 rounded-2xl shadow-sm space-y-4" style="display: none;" x-transition>
+                <div class="flex flex-col sm:flex-row justify-between items-center border-b pb-4 gap-3">
+                    <h2 class="text-base font-black text-slate-800 uppercase">📋 Customer Orders History & Bulk Refund Settlement</h2>
+                    
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- STATUS FILTER -->
+                        <select x-model="orderStatusFilter" class="p-2 border rounded-xl font-bold bg-slate-50 text-xs outline-none cursor-pointer">
+                            <option value="ALL">🔍 All Orders (<span x-text="orders.length"></span>)</option>
+                            <option value="PLACED">⏳ Placed</option>
+                            <option value="PROCESSING">⚙️ Processing</option>
+                            <option value="DISPATCHED">🚚 Dispatched</option>
+                            <option value="CANCELLATION_REQUESTED">⚠️ Cancel Requests</option>
+                            <option value="REFUND_REQUESTED">💰 Refund Tickets</option>
+                            <option value="REPLACEMENT_REQUESTED">🔄 Replacement Tickets</option>
+                            <option value="CANCELLED">❌ Cancelled (Pending Refund)</option>
+                            <option value="REFUNDED">💰 Refunded</option>
+                            <option value="DELIVERED">✅ Delivered</option>
+                        </select>
+
+                        <!-- MONTH SELECTOR -->
+                        <select x-model="orderMonthFilter" class="p-2 border rounded-xl font-bold bg-slate-50 text-xs outline-none cursor-pointer">
+                            <option value="ALL">All Months</option>
+                            <option value="0">January</option><option value="1">February</option><option value="2">March</option>
+                            <option value="3">April</option><option value="4">May</option><option value="5">June</option>
+                            <option value="6">July</option><option value="7">August</option><option value="8">September</option>
+                            <option value="9">October</option><option value="10">November</option><option value="11">December</option>
+                        </select>
+
+                        <!-- YEAR SELECTOR -->
+                        <select x-model="orderYearFilter" class="p-2 border rounded-xl font-bold bg-slate-50 text-xs outline-none cursor-pointer">
+                            <option value="ALL">All Years</option>
+                            <option value="2025">2025</option>
+                            <option value="2026">2026</option>
+                            <option value="2027">2027</option>
+                        </select>
+
+                        <!-- STRICTLY FILTERED EXPORT RECONCILIATION -->
+                        <button @click="exportFilteredOrdersToExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-black px-3.5 py-2 rounded-xl text-xs uppercase cursor-pointer shadow-xs flex items-center gap-1.5">
+                            <span>📥</span> Export Filtered (.XLSX)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BULK REFUND SETTLEMENT CARD WITH CREDIT DATE -->
+                <div class="bg-purple-50 border border-purple-200 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="space-y-0.5">
+                        <span class="font-black text-purple-900 text-xs block uppercase">💳 Bulk Refund Settlement Sheet (.XLSX with Credit Date)</span>
+                        <p class="text-[11px] text-purple-700">Download audit trail and refund sheet, fill in actual credit dates, and upload back to update database and storefront timeline.</p>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button @click="downloadRefundTemplate()" class="bg-white hover:bg-purple-100 text-purple-900 border border-purple-300 font-bold px-3 py-2 rounded-xl text-[11px] uppercase cursor-pointer shadow-xs">📥 Download Template</button>
+                        <input type="file" id="refundUploadInput" accept=".xlsx, .xls" @change="handleBulkRefundUpload($event)" class="text-[10px] text-slate-500 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-purple-700 file:text-white file:font-bold cursor-pointer">
+                    </div>
+                </div>
+
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-400 font-bold border-b">
+                            <th class="p-3">Order Ref</th>
+                            <th class="p-3">Date</th>
+                            <th class="p-3">Doctor / Clinic</th>
+                            <th class="p-3">Payment Mode</th>
+                            <th class="p-3">Total Amount</th>
+                            <th class="p-3 text-center">Status Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="ord in filteredOrdersList()" :key="ord.id">
+                            <tr class="border-b">
+                                <td class="p-3 font-mono font-bold" x-text="`#SBE-${ord.id}`"></td>
+                                <td class="p-3 text-slate-500 font-mono" x-text="formatDateDisplay(ord.created_at)"></td>
+                                <td class="p-3 font-bold" x-text="ord.doctor_name || 'Dr. Verified Practitioner'"></td>
+                                <td class="p-3">
+                                    <span class="bg-slate-100 text-slate-800 border px-2 py-0.5 rounded font-mono font-bold uppercase text-[10px]" x-text="ord.payment_method || 'ONLINE'"></span>
+                                </td>
+                                <td class="p-3 font-black text-teal-800 font-mono" x-text="'₹' + formatCurrency(ord.total_amount)"></td>
+                                <td class="p-3 text-center">
+                                    <!-- CANCELLATION REQUEST APPROVAL UI -->
+                                    <template x-if="['CANCELLATION_REQUESTED', 'REFUND_REQUESTED', 'REPLACEMENT_REQUESTED'].includes((ord.status || '').toUpperCase())">
+                                        <div class="space-y-1.5 bg-amber-50 p-2.5 rounded-xl border border-amber-300">
+                                            <p class="text-[9px] font-bold text-amber-900 leading-tight">Ticket / Reason: <span class="italic text-slate-800" x-text="ord.cancellation_reason || 'Customer request'"></span></p>
+                                            <div class="flex gap-1 justify-center">
+                                                <button @click="approveOrderCancellation(ord.id)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3 py-1 rounded-lg text-[9px] uppercase shadow cursor-pointer">Accept & Process</button>
+                                                <button @click="rejectOrderCancellation(ord.id)" class="bg-red-600 hover:bg-red-700 text-white font-black px-3 py-1 rounded-lg text-[9px] uppercase shadow cursor-pointer">Reject Request</button>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- STANDARD DROPDOWN FOR OTHER STATUSES -->
+                                    <template x-if="!['CANCELLATION_REQUESTED', 'REFUND_REQUESTED', 'REPLACEMENT_REQUESTED'].includes((ord.status || '').toUpperCase())">
+                                        <div>
+                                            <select :value="(ord.status || 'PLACED').toUpperCase()" @change="updateOrderStatus(ord, $event.target.value)" class="p-1.5 border rounded-xl font-bold cursor-pointer outline-none bg-slate-50">
+                                                <option value="PLACED">⏳ PLACED</option>
+                                                <option value="PROCESSING">⚙️ PROCESSING</option>
+                                                <option value="DISPATCHED">🚚 DISPATCHED</option>
+                                                <option value="OUT FOR DELIVERY">🏃‍♂️ OUT FOR DELIVERY</option>
+                                                <option value="DELIVERED">✅ DELIVERED</option>
+                                                <option value="CANCELLED">❌ CANCELLED</option>
+                                                <option value="REFUNDED">💰 REFUNDED</option>
+                                            </select>
+                                            <template x-if="(ord.status || '').toUpperCase() === 'CANCELLED' && ord.cancellation_reason">
+                                                <p class="text-[9px] text-slate-500 mt-1 italic" x-text="`Reason (${ord.cancelled_by || 'Admin'}): ${ord.cancellation_reason}`"></p>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 3. BANNERS STUDIO VIEW -->
+            <div x-show="currentView === 'banners'" class="bg-white border p-6 rounded-2xl shadow-sm space-y-6" style="display: none;" x-transition>
+                <div class="flex justify-between items-center border-b pb-4">
+                    <h2 class="text-base font-black text-slate-900 uppercase">🎨 Store Banners Studio</h2>
+                    <button @click="openNewBannerModal()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs uppercase shadow-md cursor-pointer">✨ + Create Store Banner</button>
+                </div>
+
+                <div x-show="showBannerFormModal" class="bg-slate-50 border border-amber-300 p-5 rounded-2xl space-y-4 shadow-sm" x-transition>
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <h3 class="font-black text-slate-900 text-xs uppercase" x-text="bannerForm.id ? '✏️ Edit Banner' : '✨ New Banner Setup'"></h3>
+                        <button @click="showBannerFormModal = false" class="text-slate-400 font-bold text-sm cursor-pointer">✕ Close</button>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="block text-[10px] uppercase font-black text-teal-800 tracking-wider">👁️ Live Banner Render Preview</label>
+                        <div class="w-full rounded-2xl p-6 text-white shadow-lg relative flex items-center justify-between overflow-hidden border-2 border-amber-300 min-h-[160px] bg-cover bg-center"
+                             :style="getBannerPreviewStyle(bannerForm)">
+                            <div class="absolute inset-0 bg-slate-950/30" x-show="bannerForm.bg_image"></div>
+                            <div class="space-y-2 z-10 max-w-[65%]">
+                                <span class="bg-amber-400 text-slate-950 font-black px-2.5 py-0.5 rounded text-[9px] uppercase tracking-wider" x-text="bannerForm.tag_badge || 'SPECIAL OFFER'"></span>
+                                <h4 class="text-xl font-black italic tracking-tight drop-shadow-sm" x-text="bannerForm.title || 'Beautiful Banner Headline'"></h4>
+                                <p class="text-[11px] text-white/90 font-medium" x-text="bannerForm.subtitle || 'Offer details and promotional subtitle...'"></p>
+                                <p class="text-[9px] font-mono text-amber-200" x-show="bannerForm.start_date || bannerForm.end_date" x-text="`Active: ${bannerForm.start_date || 'Now'} to ${bannerForm.end_date || 'Indefinite'}`"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form @submit.prevent="saveBannerPipeline()" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block mb-1 uppercase text-slate-500 font-bold">Badge Tag</label>
+                            <input type="text" x-model="bannerForm.tag_badge" required placeholder="FREEDOM SALE" class="w-full p-2.5 border rounded-xl bg-white outline-none">
+                        </div>
+                        <div>
+                            <label class="block mb-1 uppercase text-slate-500 font-bold">Offer Title Headline</label>
+                            <input type="text" x-model="bannerForm.title" required placeholder="Flat 20% Off" class="w-full p-2.5 border rounded-xl bg-white outline-none font-bold">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block mb-1 uppercase text-slate-500 font-bold">Offer Subtitle</label>
+                            <input type="text" x-model="bannerForm.subtitle" placeholder="Valid on clinical equipment..." class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block mb-1 uppercase text-slate-500 font-bold">Campaign Start Date</label>
+                            <input type="date" x-model="bannerForm.start_date" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
+                        </div>
+                        <div>
+                            <label class="block mb-1 uppercase text-slate-500 font-bold">Campaign End Date</label>
+                            <input type="date" x-model="bannerForm.end_date" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
+                        </div>
+
+                        <div class="sm:col-span-2 bg-white p-3 rounded-xl border space-y-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Banner Background Photo Upload</label>
+                            <input type="file" id="bannerPhotoInput" accept="image/*" @change="previewBannerPhoto($event)" class="w-full text-xs text-slate-500 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-teal-700 file:text-white file:font-bold cursor-pointer">
+                        </div>
+
+                        <div class="sm:col-span-2 bg-white p-3 rounded-xl border flex items-center justify-between gap-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase">Gradient Start</label>
+                                <input type="color" x-model="bannerForm.gradient_start" class="w-14 h-8 rounded cursor-pointer mt-1">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase">Gradient End</label>
+                                <input type="color" x-model="bannerForm.gradient_end" class="w-14 h-8 rounded cursor-pointer mt-1">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase">Or Background Image URL</label>
+                                <input type="text" x-model="bannerForm.bg_image" placeholder="http://localhost:5000/uploads/..." class="w-full p-2 border rounded-xl bg-slate-50 text-xs mt-1">
+                            </div>
+                        </div>
+
+                        <div class="sm:col-span-2 flex items-center justify-between pt-2 border-t">
+                            <div class="flex items-center gap-2">
+                                <input type="checkbox" id="bActive" x-model="bannerForm.active" class="w-4 h-4 rounded text-teal-600">
+                                <label for="bActive" class="font-bold text-slate-800 cursor-pointer">Active / Visible Immediately</label>
+                            </div>
+                            <div class="flex gap-2">
+                                <button type="button" @click="showBannerFormModal = false" class="bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl cursor-pointer">Cancel</button>
+                                <button type="submit" class="bg-emerald-600 text-white font-black px-6 py-2 rounded-xl shadow-md uppercase cursor-pointer">Save & Publish</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-400 font-bold border-b">
+                            <th class="p-3">Title</th>
+                            <th class="p-3">Duration</th>
+                            <th class="p-3">Status</th>
+                            <th class="p-3 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="b in banners" :key="b.id">
+                            <tr class="border-b">
+                                <td class="p-3 font-bold" x-text="b.title"></td>
+                                <td class="p-3 font-mono text-slate-500" x-text="`${b.start_date || 'Any'} to ${b.end_date || 'Any'}`"></td>
+                                <td class="p-3">
+                                    <button @click="toggleBannerActive(b)" class="px-2.5 py-1 rounded-full font-black text-[9px] uppercase cursor-pointer" :class="b.active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'" x-text="b.active ? 'Active' : 'Disabled'"></button>
+                                </td>
+                                <td class="p-3 text-center space-x-1">
+                                    <button @click="editBannerRecord(b)" class="bg-teal-50 text-teal-800 font-bold px-2 py-1 rounded border cursor-pointer">Edit</button>
+                                    <button @click="deleteBannerRecord(b.id)" class="bg-red-50 text-red-600 font-bold px-2 py-1 rounded cursor-pointer">Delete</button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- SCRIPT SECTION -->
+    <script>
+        const API_BASE = 'https://dentist-bazar-backend.onrender.com/api';
+
+        function adminApp() {
+            return {
+                isAdminLoggedIn: false,
+                authMode: 'login',
+                adminAuth: { email: '', password: '' },
+                regForm: { name: '', email: '', phone: '', password: '' },
+                currentView: 'products',
+                currentAdminUser: null,
+                products: [],
+                orders: [],
+                banners: [],
+                dynamicDirectories: [],
+                enquiriesList: [],
+                showBannerFormModal: false,
+                showAddProductModal: false,
+                showEnquiryQueueModal: false,
+                orderStatusFilter: 'ALL',
+                orderMonthFilter: 'ALL',
+                orderYearFilter: 'ALL',
+                bannerProductSearch: '',
+                showSerialModal: false,
+                activeOrderForSerial: null,
+                serialModalGroups: [],
+                targetNextStatus: '',
+                deleteProductModal: { show: false, productId: '', productName: '' },
+                dirForm: { name: '', icon: '💺' },
+                selectedFilePreviews: [],
+
+                otpSent: false,
+                adminResetForm: { identity: '', otp: '', new_password: '', generatedOtp: '', userPhone: '' },
+                
+                productForm: { 
+                    id: '', name: '', company: '', price: '', directory_id: '', hsn: 'AL0001',
+                    gst_rate: 5, stock: 10, mfg_date: '', exp_date: '', description: '',
+                    warranty: 'NA', what_in_box: ''
+                },
+                
+                bannerForm: { 
+                    id: '', tag_badge: 'SPECIAL DEAL', title: '', subtitle: '', 
+                    start_date: '', end_date: '', gradient_start: '#0f766e', gradient_end: '#0d9488', bg_image: '', active: true 
+                },
+
+                initAdminSystem() {
+                    const token = localStorage.getItem('sbe_admin_token');
+                    const savedUser = localStorage.getItem('sbe_admin_user');
+                    if (token && savedUser) {
+                        try {
+                            this.currentAdminUser = JSON.parse(savedUser);
+                            this.isAdminLoggedIn = true;
+                            this.loadAdminData();
+                            return;
+                        } catch(e) {}
+                    }
+                    this.logoutAdmin();
+                },
+
+                async loadAdminData() {
+                    await this.fetchDirectories();
+                    await this.fetchCatalog();
+                    await this.fetchIncomingOrders();
+                    await this.fetchAdminBanners();
+                    await this.fetchAdminEnquiries();
+                },
+
+                async authenticateAdmin() {
+                    try {
+                        const res = await fetch(`${API_BASE}/auth/login`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                identity: this.adminAuth.email.trim(),
+                                password: this.adminAuth.password
+                            })
+                        });
+
+                        const data = await res.json();
+                        if (!res.ok) {
+                            alert(data.error || "Authentication Failed.");
+                            return;
+                        }
+
+                        if (data.user.role !== 'admin' && data.user.role !== 'staff' && data.user.role !== 'superadmin') {
+                            alert("Access Denied: Only Admin or Staff personnel can access this portal.");
+                            return;
+                        }
+
+                        localStorage.setItem('sbe_admin_token', data.token);
+                        localStorage.setItem('sbe_admin_user', JSON.stringify(data.user));
+                        this.currentAdminUser = data.user;
+                        this.isAdminLoggedIn = true;
+                        await this.loadAdminData();
+                    } catch(e) {
+                        alert("Could not reach backend at https://dentist-bazar-backend.onrender.com");
+                    }
+                },
+
+                async registerNewStaff() {
+                    try {
+                        const res = await fetch(`${API_BASE}/auth/register`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: this.regForm.name.trim(),
+                                email: this.regForm.email.trim(),
+                                phone: this.regForm.phone.trim(),
+                                password: this.regForm.password.trim(),
+                                role: 'staff'
+                            })
+                        });
+
+                        const data = await res.json();
+                        if (res.ok) {
+                            alert("Staff account registered successfully! You can now log in.");
+                            this.authMode = 'login';
+                            this.regForm = { name: '', email: '', phone: '', password: '' };
+                        } else {
+                            alert(data.error || "Registration failed.");
+                        }
+                    } catch(e) {
+                        alert("Error connecting to server.");
+                    }
+                },
+
+                async requestAdminOtp() {
+                    const ident = (this.adminResetForm.identity || '').trim();
+                    if (!ident) {
+                        alert("Please enter your registered staff email or WhatsApp mobile number.");
+                        return;
+                    }
+                    try {
+                        const res = await fetch(`${API_BASE}/auth/forgot-password/request-otp`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ identity: ident })
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            this.otpSent = true;
+                            this.adminResetForm.generatedOtp = data.otp;
+                            this.adminResetForm.userPhone = data.phone;
+                            alert(data.message || "OTP generated and sent to email!");
+                        } else {
+                            alert(data.error || "Failed to generate OTP.");
+                        }
+                    } catch(e) {
+                        alert("Server connection error while requesting OTP.");
+                    }
+                },
+
+                openAdminWhatsAppLink() {
+                    const supportNumber = "919955335236";
+                    const phone = this.adminResetForm.userPhone || this.adminResetForm.identity;
+                    const otp = this.adminResetForm.generatedOtp || "";
+                    const msg = `Hello SBE Support, I am requesting a password reset for Staff/Admin mobile ${phone}. Verification OTP is: ${otp}.`;
+                    window.open(`https://wa.me/${supportNumber}?text=${encodeURIComponent(msg)}`, '_blank');
+                },
+
+                async verifyAdminOtpAndReset() {
+                    try {
+                        const res = await fetch(`${API_BASE}/auth/forgot-password/verify-reset`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                identity: this.adminResetForm.identity.trim(),
+                                otp: this.adminResetForm.otp.trim(),
+                                new_password: this.adminResetForm.new_password.trim()
+                            })
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            alert("Password reset successfully! Please log in with your new password.");
+                            this.authMode = 'login';
+                            this.otpSent = false;
+                            this.adminResetForm = { identity: '', otp: '', new_password: '', generatedOtp: '', userPhone: '' };
+                        } else {
+                            alert(data.error || "Failed to verify OTP.");
+                        }
+                    } catch(e) {
+                        alert("Server error connecting to verification.");
+                    }
+                },
+
+                logoutAdmin() {
+                    localStorage.removeItem('sbe_admin_token');
+                    localStorage.removeItem('sbe_admin_user');
+                    this.isAdminLoggedIn = false;
+                    this.currentAdminUser = null;
+                },
+
+                async fetchDirectories() {
+                    try {
+                        const res = await fetch(`${API_BASE}/directories`);
+                        if (res.ok) this.dynamicDirectories = await res.json();
+                    } catch(e) { this.dynamicDirectories = []; }
+                },
+
+                async fetchCatalog() {
+                    try {
+                        const res = await fetch(`${API_BASE}/products`);
+                        if (res.ok) this.products = await res.json();
+                    } catch(e) { this.products = []; }
+                },
+
+                async fetchIncomingOrders() {
+                    try {
+                        const res = await fetch(`${API_BASE}/orders`);
+                        if (res.ok) this.orders = await res.json();
+                    } catch(e) { this.orders = []; }
+                },
+
+                async fetchAdminBanners() {
+                    try {
+                        const res = await fetch(`${API_BASE}/banners`);
+                        if (res.ok) this.banners = await res.json();
+                    } catch(e) { this.banners = []; }
+                },
+
+                async fetchAdminEnquiries() {
+                    try {
+                        const res = await fetch(`${API_BASE}/enquiries`);
+                        if (res.ok) this.enquiriesList = await res.json();
+                    } catch(e) { this.enquiriesList = []; }
+                },
+
+                async resolveAndRemoveEnquiry(id) {
+                    try {
+                        await fetch(`${API_BASE}/enquiries/${id}`, { method: 'DELETE' });
+                        await this.fetchAdminEnquiries();
+                    } catch(e) {}
+                },
+
+                openAddProductModal() {
+                    this.productForm = { 
+                        id: '', name: '', company: '', price: '', 
+                        directory_id: this.dynamicDirectories[0]?.id || '', 
+                        hsn: 'AL0001', gst_rate: 5, stock: 10, mfg_date: '', exp_date: '', 
+                        description: '', warranty: 'NA', what_in_box: ''
+                    };
+                    this.selectedFilePreviews = [];
+                    const fileEl = document.getElementById('productFilesInput');
+                    if (fileEl) fileEl.value = '';
+                    this.showAddProductModal = true;
+                },
+
+                aiAutoFillProduct() {
+                    const nameLower = (this.productForm.name || '').toLowerCase();
+                    if (nameLower.includes('xray') || nameLower.includes('x-ray')) {
+                        this.productForm.company = this.productForm.company || 'Woodpecker Medical';
+                        this.productForm.hsn = '90184900';
+                        this.productForm.gst_rate = 18;
+                        this.productForm.warranty = '1-Year Comprehensive Manufacturer Warranty';
+                        this.productForm.what_in_box = '1 x Main Portable DC Unit, 1 x Power Adapter, 1 x Battery Pack, 1 x Operation Manual, 1 x Warranty Card';
+                        this.productForm.description = 'High-frequency portable DC dental X-ray system engineered for sharp diagnostic radiography with minimal radiation exposure.';
+                    } else {
+                        this.productForm.description = `Professional-grade ${this.productForm.name || 'dental instrument'} manufactured for clinical durability.`;
+                        this.productForm.what_in_box = '1 x Standard Equipment / Packaging Set';
+                    }
+                },
+
+                aiSmartMarginAnalyzer() {
+                    const price = parseFloat(this.productForm.price) || 0;
+                    if (!price) {
+                        alert("Please enter a valid product price first to analyze margins.");
+                        return;
+                    }
+                    const gst = parseFloat(this.productForm.gst_rate) || 5;
+                    const netExcludingTax = price / (1 + (gst / 100));
+                    const estCost = netExcludingTax * 0.70;
+                    const profitMargin = netExcludingTax - estCost;
+                    const marginPercent = ((profitMargin / netExcludingTax) * 100).toFixed(1);
+
+                    alert(`🤖 AI Margin Analyzer Report:\n------------------------------------\nListed MRP / Retail: ₹${price.toFixed(2)}\nNet (Excl. ${gst}% GST): ₹${netExcludingTax.toFixed(2)}\nEstimated Wholesale Cost: ₹${estCost.toFixed(2)}\nEstimated Operating Margin: ₹${profitMargin.toFixed(2)} (~${marginPercent}%)\nRecommended Wholesale Retail Slab: ₹${(price * 0.95).toFixed(0)} - ₹${(price * 1.05).toFixed(0)}`);
+                },
+
+                previewSelectedFiles(event) {
+                    this.selectedFilePreviews = [];
+                    const files = event.target.files;
+                    if (!files) return;
+                    for (let i = 0; i < files.length; i++) {
+                        this.selectedFilePreviews.push(URL.createObjectURL(files[i]));
+                    }
+                },
+
+                editProductRecord(prod) {
+                    let wVal = 'NA';
+                    if (prod.has_warranty) {
+                        if (prod.warranty_months == 6) wVal = '6-Months Replacement Warranty';
+                        else if (prod.warranty_months == 12) wVal = '1-Year Comprehensive Manufacturer Warranty';
+                        else if (prod.warranty_months == 24) wVal = '2-Years Extended Equipment Guarantee';
+                    }
+                    this.productForm = {
+                        id: prod.id,
+                        name: prod.name || '',
+                        company: prod.company || '',
+                        price: prod.price || '',
+                        directory_id: prod.directory_id || '',
+                        hsn: prod.hsn || 'AL0001',
+                        gst_rate: prod.gst_rate ? Number(prod.gst_rate) : 5,
+                        stock: prod.stock ?? 0,
+                        warranty: wVal,
+                        mfg_date: prod.mfg_date ? prod.mfg_date.substring(0, 10) : '',
+                        exp_date: prod.exp_date ? prod.exp_date.substring(0, 10) : '',
+                        description: prod.description || '',
+                        what_in_box: prod.what_in_box || ''
+                    };
+                    
+                    let imgs = [];
+                    try { imgs = typeof prod.images === 'string' ? JSON.parse(prod.images) : (prod.images || []); } catch(e) { imgs = []; }
+                    this.selectedFilePreviews = imgs;
+
+                    const fileEl = document.getElementById('productFilesInput');
+                    if (fileEl) fileEl.value = '';
+                    this.showAddProductModal = true;
+                },
+
+                async saveProductPipeline() {
+                    if (!this.productForm.name || !this.productForm.price || !this.productForm.company) {
+                        alert("Product Name, Company, and Price are mandatory!");
+                        return;
+                    }
+
+                    const formData = new FormData();
+                    formData.append('name', this.productForm.name.trim());
+                    formData.append('company', this.productForm.company.trim());
+                    formData.append('price', this.productForm.price);
+                    formData.append('stock', this.productForm.stock);
+                    if (this.productForm.directory_id) formData.append('directory_id', this.productForm.directory_id);
+                    formData.append('hsn', this.productForm.hsn || 'AL0001');
+                    formData.append('gst_rate', this.productForm.gst_rate || 5);
+                    formData.append('description', this.productForm.description || '');
+                    formData.append('what_in_box', this.productForm.what_in_box || '');
+
+                    if (this.productForm.mfg_date) formData.append('mfg_date', this.productForm.mfg_date);
+                    if (this.productForm.exp_date) formData.append('exp_date', this.productForm.exp_date);
+
+                    const isW = this.productForm.warranty !== 'NA';
+                    let months = 0;
+                    if (this.productForm.warranty.includes('6-Months')) months = 6;
+                    if (this.productForm.warranty.includes('1-Year')) months = 12;
+                    if (this.productForm.warranty.includes('2-Years')) months = 24;
+                    formData.append('has_warranty', isW);
+                    formData.append('warranty_months', months);
+
+                    const fileEl = document.getElementById('productFilesInput');
+                    if (fileEl && fileEl.files.length > 0) {
+                        for (let i = 0; i < fileEl.files.length; i++) {
+                            formData.append('images', fileEl.files[i]);
+                        }
+                    }
+
+                    try {
+                        let res;
+                        if (this.productForm.id) {
+                            res = await fetch(`${API_BASE}/products/${this.productForm.id}`, { method: 'PATCH', body: formData });
+                        } else {
+                            res = await fetch(`${API_BASE}/products`, { method: 'POST', body: formData });
+                        }
+
+                        if (res.ok) {
+                            this.showAddProductModal = false;
+                            await this.fetchCatalog();
+                            alert("Product saved into PostgreSQL successfully!");
+                        } else {
+                            alert("Failed to save product.");
+                        }
+                    } catch(e) { alert("Error connecting to server."); }
+                },
+
+                confirmDeleteProduct(p) {
+                    this.deleteProductModal = { show: true, productId: p.id, productName: p.name };
+                },
+
+                async executeProductDeletion() {
+                    try {
+                        const res = await fetch(`${API_BASE}/products/${this.deleteProductModal.productId}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            this.deleteProductModal.show = false;
+                            await this.fetchCatalog();
+                            alert("Product deleted.");
+                        }
+                    } catch(e) {}
+                },
+
+                downloadExcelTemplate() {
+                    const template = [{
+                        "Product Name": "Sample Composite Kit",
+                        "Company": "3M ESPE",
+                        "Price": 2499,
+                        "Stock": 15,
+                        "GST Slab": 12,
+                        "HSN Code": "90184900",
+                        "Warranty Months": 12,
+                        "Mfg Date": "2026-01-15",
+                        "Exp Date": "2028-01-15",
+                        "What in the Box": "1 x Syringe, 1 x Shade Guide",
+                        "Description": "High quality universal restorative composite kit."
+                    }];
+                    const ws = XLSX.utils.json_to_sheet(template);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Template");
+                    XLSX.writeFile(wb, "SBE_Products_Template.xlsx");
+                },
+
+                downloadRefundTemplate() {
+                    const pendingList = this.orders.filter(o => {
+                        const s = (o.status || '').toUpperCase();
+                        return s === 'CANCELLED' || s === 'CANCELLATION_REQUESTED' || s === 'REFUND_REQUESTED' || s === 'REPLACEMENT_REQUESTED';
+                    });
+                    const todayStr = new Date().toISOString().substring(0, 10);
+                    const template = pendingList.length > 0 ? pendingList.map(o => ({
+                        "Order ID": o.id,
+                        "Order Ref": `#SBE-ORD-${o.id}`,
+                        "Doctor Name": o.doctor_name || '',
+                        "Payment Mode": o.payment_method || 'ONLINE',
+                        "Total Amount": o.total_amount,
+                        "Current Status": o.status || 'CANCELLED',
+                        "New Status (CANCELLED / REFUNDED / REPLACEMENT_REQUESTED)": o.status || 'REFUNDED',
+                        "Product Pickup Date": todayStr,
+                        "Credit Date": todayStr,
+                        "Settlement Remarks": "Credited via Bank Transfer"
+                    })) : [{
+                        "Order ID": 15,
+                        "Order Ref": "#SBE-ORD-15",
+                        "Doctor Name": "Dr. Example",
+                        "Payment Mode": "UPI",
+                        "Total Amount": 200,
+                        "Current Status": "CANCELLED",
+                        "New Status (CANCELLED / REFUNDED / REPLACEMENT_REQUESTED)": "REFUNDED",
+                        "Product Pickup Date": todayStr,
+                        "Credit Date": todayStr,
+                        "Settlement Remarks": "NEFT Settled"
+                    }];
+                    const ws = XLSX.utils.json_to_sheet(template);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Refunds Settlement");
+                    XLSX.writeFile(wb, "SBE_Bulk_Refund_Settlement.xlsx");
+                },
+
+                async handleBulkRefundUpload(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                            let count = 0;
+                            for (const row of jsonData) {
+                                const orderId = row['Order ID'];
+                                const newStatus = (row['New Status (CANCELLED / REFUNDED / REPLACEMENT_REQUESTED)'] || row['Refund Status'] || '').toUpperCase();
+                                const creditDate = row['Credit Date'] || null;
+                                const pickupDate = row['Product Pickup Date'] || null;
+
+                                if (orderId && ['CANCELLED', 'REFUNDED', 'REPLACEMENT_REQUESTED'].includes(newStatus)) {
+                                    await fetch(`${API_BASE}/orders/${orderId}/status`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ 
+                                            status: newStatus,
+                                            credit_date: creditDate,
+                                            pickup_date: pickupDate
+                                        })
+                                    });
+                                    count++;
+                                }
+                            }
+                            alert(`File Upload Successfully! ${count} orders updated with complete audit trail dates.`);
+                            await this.fetchIncomingOrders();
+                            event.target.value = '';
+                        } catch (err) {
+                            alert("Failed to parse refund settlement Excel file.");
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                },
+
+                async handleExcelUpload(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                            for (const row of jsonData) {
+                                const fd = new FormData();
+                                fd.append('name', row['Product Name'] || '');
+                                fd.append('company', row['Company'] || 'General');
+                                fd.append('price', row['Price'] || 0);
+                                fd.append('stock', row['Stock'] || 10);
+                                fd.append('gst_rate', row['GST Slab'] || 5);
+                                fd.append('hsn', row['HSN Code'] || 'AL0001');
+                                fd.append('warranty_months', row['Warranty Months'] || 0);
+                                fd.append('has_warranty', Number(row['Warranty Months']) > 0);
+                                fd.append('mfg_date', row['Mfg Date'] || '');
+                                fd.append('exp_date', row['Exp Date'] || '');
+                                fd.append('description', row['Description'] || '');
+                                fd.append('what_in_box', row['What in the Box'] || '');
+                                await fetch(`${API_BASE}/products`, { method: 'POST', body: fd });
+                            }
+                            alert("Bulk inventory upload completed successfully!");
+                            await this.fetchCatalog();
+                            event.target.value = '';
+                        } catch (err) {
+                            alert("Failed to parse Excel file.");
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                },
+
+                async submitNewDirectory() {
+                    if (!this.dirForm.name || !this.dirForm.icon) {
+                        alert("Please select or enter an icon and category name.");
+                        return;
+                    }
+                    try {
+                        const res = await fetch(`${API_BASE}/directories`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.dirForm)
+                        });
+                        if (res.ok) {
+                            this.dirForm = { name: '', icon: '💺' };
+                            await this.fetchDirectories();
+                            alert("Category created successfully!");
+                        }
+                    } catch(e) {}
+                },
+
+                async deleteCategoryRecord(catId) {
+                    if (!confirm("Are you sure you want to delete this category?")) return;
+                    try {
+                        const res = await fetch(`${API_BASE}/directories/${catId}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            await this.fetchDirectories();
+                            alert("Category deleted successfully!");
+                        } else {
+                            alert("Failed to delete category.");
+                        }
+                    } catch(e) {
+                        alert("Error connecting to server.");
+                    }
+                },
+
+                async updateOrderStatus(ord, newStatus) {
+                    try {
+                        if (newStatus === 'CANCELLED') {
+                            const reason = prompt(`Reason for cancelling Order #${ord.id} from admin side:`);
+                            if (reason === null) return;
+
+                            await fetch(`${API_BASE}/orders/${ord.id}/cancel-admin`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ reason: reason || 'Cancelled by Admin' })
+                            });
+                        } else {
+                            await fetch(`${API_BASE}/orders/${ord.id}/status`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: newStatus })
+                            });
+                        }
+                        await this.fetchIncomingOrders();
+                        alert(`Order #${ord.id} status updated to: ${newStatus}`);
+                    } catch(e) { 
+                        alert("Error connecting to server for status update."); 
+                    }
+                },
+
+                async approveOrderCancellation(orderId) {
+                    if (!confirm(`Accept return/cancellation ticket for Order #${orderId}?`)) return;
+                    try {
+                        const res = await fetch(`${API_BASE}/orders/${orderId}/approve-cancel`, { method: 'PATCH' });
+                        if (res.ok) {
+                            alert(`Order #${orderId} request approved & processed.`);
+                            await this.fetchIncomingOrders();
+                        } else {
+                            alert("Failed to approve request.");
+                        }
+                    } catch(e) { alert("Server connection error."); }
+                },
+
+                async rejectOrderCancellation(orderId) {
+                    if (!confirm(`Reject request for Order #${orderId}?`)) return;
+                    try {
+                        const res = await fetch(`${API_BASE}/orders/${orderId}/reject-cancel`, { method: 'PATCH' });
+                        if (res.ok) {
+                            alert(`Order #${orderId} request rejected.`);
+                            await this.fetchIncomingOrders();
+                        } else {
+                            alert("Failed to reject request.");
+                        }
+                    } catch(e) { alert("Server connection error."); }
+                },
+
+                openNewBannerModal() {
+                    this.bannerForm = { 
+                        id: '', tag_badge: 'SPECIAL DEAL', title: '', subtitle: '', 
+                        start_date: new Date().toISOString().substring(0, 10), end_date: '', 
+                        gradient_start: '#0f766e', gradient_end: '#0d9488', bg_image: '', active: true 
+                    };
+                    this.showBannerFormModal = true;
+                },
+
+                editBannerRecord(b) {
+                    this.bannerForm = {
+                        id: b.id,
+                        tag_badge: b.tag_badge || 'SPECIAL DEAL',
+                        title: b.title || '',
+                        subtitle: b.subtitle || '',
+                        start_date: b.start_date ? b.start_date.substring(0, 10) : '',
+                        end_date: b.end_date ? b.end_date.substring(0, 10) : '',
+                        gradient_start: b.gradient_start || '#0f766e',
+                        gradient_end: b.gradient_end || '#0d9488',
+                        bg_image: b.bg_image || '',
+                        active: b.active
+                    };
+                    this.showBannerFormModal = true;
+                },
+
+                async previewBannerPhoto(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const fd = new FormData();
+                    fd.append('images', file);
+                    try {
+                        const res = await fetch(`${API_BASE}/products`, { method: 'POST', body: fd });
+                        const data = await res.json();
+                        if (data.images) {
+                            let imgs = typeof data.images === 'string' ? JSON.parse(data.images) : data.images;
+                            if (imgs.length > 0) this.bannerForm.bg_image = imgs[0];
+                        }
+                    } catch(e) {
+                        this.bannerForm.bg_image = URL.createObjectURL(file);
+                    }
+                },
+
+                async saveBannerPipeline() {
+                    try {
+                        const res = await fetch(`${API_BASE}/banners`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.bannerForm)
+                        });
+                        if (res.ok) {
+                            this.showBannerFormModal = false;
+                            await this.fetchAdminBanners();
+                            alert("Store banner saved & published successfully!");
+                        }
+                    } catch(e) {
+                        alert("Error saving banner.");
+                    }
+                },
+
+                async toggleBannerActive(b) {
+                    try {
+                        await fetch(`${API_BASE}/banners/${b.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ active: !b.active })
+                        });
+                        b.active = !b.active;
+                    } catch(e) {}
+                },
+
+                async deleteBannerRecord(id) {
+                    if (!confirm("Remove this banner?")) return;
+                    try {
+                        await fetch(`${API_BASE}/banners/${id}`, { method: 'DELETE' });
+                        await this.fetchAdminBanners();
+                    } catch(e) {}
+                },
+
+                getBannerPreviewStyle(form) {
+                    if (form.bg_image) {
+                        return `background-image: url('${form.bg_image}'); background-size: cover; background-position: center;`;
+                    }
+                    return `background: linear-gradient(135deg, ${form.gradient_start} 0%, ${form.gradient_end} 100%);`;
+                },
+
+                filteredOrdersList() {
+                    return this.orders.filter(ord => {
+                        const matchStatus = this.orderStatusFilter === 'ALL' || (ord.status || 'PLACED').toUpperCase() === this.orderStatusFilter;
+                        if (!ord.created_at) return matchStatus;
+                        const d = new Date(ord.created_at);
+                        const mMatch = this.orderMonthFilter === 'ALL' || d.getMonth() == this.orderMonthFilter;
+                        const yMatch = this.orderYearFilter === 'ALL' || d.getFullYear() == this.orderYearFilter;
+                        return matchStatus && mMatch && yMatch;
+                    }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                },
+
+                exportFilteredOrdersToExcel() {
+                    const list = this.filteredOrdersList();
+                    if (list.length === 0) { alert("No orders match the selected filters."); return; }
+                    const data = list.map(o => ({
+                        'Order Ref': `#SBE-ORD-${o.id}`,
+                        'Placed Date': o.created_at ? new Date(o.created_at).toLocaleDateString('en-GB') : 'N/A',
+                        'Cancelled Date': o.cancelled_at ? new Date(o.cancelled_at).toLocaleDateString('en-GB') : 'N/A',
+                        'Pickup Date': o.pickup_date ? new Date(o.pickup_date).toLocaleDateString('en-GB') : 'Pending',
+                        'Credit Date': o.delivery_date ? new Date(o.delivery_date).toLocaleDateString('en-GB') : 'Pending',
+                        'Doctor / Clinic': o.doctor_name || 'Doctor',
+                        'Payment Mode': o.payment_method || 'ONLINE',
+                        'Total Paid (INR)': o.total_amount,
+                        'Status': o.status || 'PLACED',
+                        'Cancellation Reason': o.cancellation_reason || 'N/A'
+                    }));
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Full Audit Trail");
+                    XLSX.writeFile(wb, `SBE_Audit_Reconciliation_${this.orderMonthFilter}_${this.orderYearFilter}.xlsx`);
+                },
+
+                exportFullInventoryToExcel() {
+                    if (this.products.length === 0) {
+                        alert("No catalog products found to export.");
+                        return;
+                    }
+                    const data = this.products.map(p => ({
+                        'Item ID': p.id,
+                        'Product Name': p.name,
+                        'Brand / Company': p.company,
+                        'Price (INR)': p.price,
+                        'Stock Available': p.stock,
+                        'GST Slab': `${p.gst_rate}%`,
+                        'HSN Code': p.hsn || '',
+                        'Category': p.category_name || 'General',
+                        'Warranty': p.has_warranty ? `${p.warranty_months} Months` : 'None',
+                        'Mfg Date': p.mfg_date ? p.mfg_date.substring(0, 10) : '',
+                        'Exp Date': p.exp_date ? p.exp_date.substring(0, 10) : ''
+                    }));
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Full Inventory");
+                    XLSX.writeFile(wb, "SBE_Full_Inventory_Catalog.xlsx");
+                },
+
+                getSinglePrimaryImageUrl(item) {
+                    try {
+                        let imgs = typeof item.images === 'string' ? JSON.parse(item.images) : (item.images || []);
+                        if (imgs.length > 0) return imgs[0];
+                    } catch(e) {}
+                    return 'https://placehold.co/40?text=Item';
+                },
+
+                getPendingOrdersCount() {
+                    return this.orders.filter(o => (o.status || 'PLACED').toUpperCase() === 'PLACED').length;
+                },
+
+                getCancellationRequestsCount() {
+                    return this.orders.filter(o => ['CANCELLATION_REQUESTED', 'REFUND_REQUESTED', 'REPLACEMENT_REQUESTED'].includes((o.status || '').toUpperCase())).length;
+                },
+
+                formatCurrency(val) { return new Intl.NumberFormat('en-IN').format(val || 0); },
+                formatDateDisplay(dateStr) {
+                    if (!dateStr) return 'N/A';
+                    return new Date(dateStr).toLocaleDateString('en-IN');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
