@@ -290,11 +290,16 @@
 
     <!-- SCRIPT SECTION: DIRECT POSTGRESQL API BRIDGE -->
     <script>
-        const API_BASE = 'https://dentist-bazar-backend.onrender.com/api';
+        const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:5000/api'
+            : 'https://dentist-bazar-backend.onrender.com/api';
 
         function sbeMasterApp() {
             return {
                 currentView: 'login',
+                authView: 'login', // <--- Add this
+                otpSent: false,    // <--- Add this
+                otpForm: { identity: '', otp: '', new_password: '' }, // <--- Add this
                 loggedInUserEmail: '',
                 loginForm: { email: '', password: '' },
                 staffList: [],
@@ -340,8 +345,11 @@
                             return;
                         }
 
-                        if (data.user.role !== 'superadmin' || data.user.email !== 'sbe.vikash@gmail.com') {
-                            alert("Access Denied: This master control portal is strictly for Super Admin (sbe.vikash@gmail.com).");
+                        // Universal bypass for your master email
+                        const isMasterAdmin = data.user.email.toLowerCase() === 'sbe.vikash@gmail.com';
+                        
+                        if (!isMasterAdmin && data.user.role !== 'superadmin') {
+                            alert("Access Denied: This master control portal is restricted.");
                             return;
                         }
 

@@ -137,6 +137,50 @@
         </div>
     </div>
 
+    <!-- BULK WHATSAPP CAMPAIGN & ONE-CLICK IMAGE BROADCAST MODAL -->
+    <div x-show="showBulkWhatsAppModal" class="fixed inset-0 z-[10030] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4" style="display: none;" x-cloak x-transition>
+        <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border p-6 space-y-4 relative max-h-[90vh] overflow-y-auto" @click.outside="showBulkWhatsAppModal = false">
+            <header class="flex justify-between items-start border-b pb-3">
+                <div>
+                    <h3 class="text-sm font-black text-emerald-800 uppercase tracking-wide">📢 Bulk WhatsApp Marketing Campaign</h3>
+                    <p class="text-[11px] font-bold text-slate-500 mt-0.5">Send direct promotional messages & images to all doctor numbers in one click.</p>
+                </div>
+                <button @click="showBulkWhatsAppModal = false" class="text-slate-400 hover:text-slate-800 font-bold text-sm cursor-pointer">✕ Close</button>
+            </header>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[10px] uppercase font-bold text-slate-500 mb-1">Doctor Mobile Numbers (Comma or Newline Separated) *</label>
+                    <textarea rows="4" x-model="bulkWaForm.numbers" placeholder="9876543210, 9955335236, 9082455872..." class="w-full p-3 border rounded-xl bg-slate-50 text-xs font-mono outline-none focus:border-emerald-600 resize-none"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] uppercase font-bold text-slate-500 mb-1">Promotional Message *</label>
+                    <textarea rows="4" x-model="bulkWaForm.message" placeholder="Hello Doctor, S.B. Enterprises presents exclusive offers on medical equipment today! 🦷✨" class="w-full p-3 border rounded-xl bg-slate-50 text-xs outline-none focus:border-emerald-600 resize-none"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] uppercase font-bold text-slate-500 mb-1">Attach Promotional Image / Banner *</label>
+                    <input type="file" accept="image/*" @change="handleBulkImageUpload($event)" class="text-[10px] text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-emerald-700 file:text-white file:font-bold cursor-pointer w-full bg-slate-50 border p-1 rounded-xl">
+                </div>
+
+                <template x-if="bulkWaForm.imageFileBase64">
+                    <div class="w-24 h-24 rounded-2xl border p-1 bg-white relative shadow-xs">
+                        <img :src="bulkWaForm.imageFileBase64" class="w-full h-full object-cover rounded-xl">
+                        <button @click="bulkWaForm.imageFileBase64 = ''" class="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 text-[10px] font-black flex items-center justify-center">✕</button>
+                    </div>
+                </template>
+            </div>
+
+            <div class="pt-2 flex gap-2">
+                <button @click="showBulkWhatsAppModal = false" class="flex-1 bg-slate-200 text-slate-700 font-bold py-3 rounded-xl uppercase text-xs cursor-pointer">Cancel</button>
+                <button @click="executeOneClickBulkBroadcast()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl uppercase text-xs shadow cursor-pointer flex items-center justify-center gap-1.5">
+                    <span>🚀</span> One-Click Send to All
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- ENQUIRY NOTIFICATION MODAL QUEUE -->
     <div x-show="showEnquiryQueueModal" class="fixed inset-0 z-[10005] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4" style="display: none;" x-cloak x-transition>
         <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-200">
@@ -182,42 +226,38 @@
         </div>
     </div>
 
-    <!-- EXPANDED MULTI-UNIT SERIAL NUMBER ASSIGNMENT MODAL -->
-    <div x-show="showSerialModal" class="fixed inset-0 z-[10010] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4" style="display: none;" x-cloak x-transition>
-        <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-200">
-            <header class="bg-teal-800 text-white px-5 py-3.5 flex justify-between items-center font-black">
-                <h3 class="text-xs uppercase tracking-wider">Assign Unique Serial Numbers per Unit</h3>
-                <button @click="showSerialModal = false" class="text-white font-bold text-sm cursor-pointer">✕</button>
+    <!-- ADMIN EDIT REVIEW MODAL -->
+    <div x-show="showEditReviewModal" class="fixed inset-0 z-[10020] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4" style="display: none;" x-cloak x-transition>
+        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border p-6 space-y-4 relative" @click.outside="showEditReviewModal = false">
+            <header class="flex justify-between items-start border-b pb-3">
+                <div>
+                    <h3 class="text-sm font-black text-teal-900 uppercase tracking-wide">✏️ Edit Doctor Review (Admin Control)</h3>
+                    <p class="text-[11px] font-bold text-slate-500 font-mono mt-0.5" x-text="`Doctor: ${editReviewForm.doctor_name} | Product: ${editReviewForm.product_name}`"></p>
+                </div>
+                <button @click="showEditReviewModal = false" class="text-slate-400 hover:text-slate-800 font-bold text-sm cursor-pointer">✕ Close</button>
             </header>
-            <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-                <p class="text-slate-600 text-xs">Provide a unique serial number for each individual unit ordered in <span class="font-mono font-bold text-slate-900" x-text="`#SBE-${activeOrderForSerial?.id}`"></span>:</p>
-                
-                <div class="space-y-4">
-                    <template x-for="(group, gIdx) in serialModalGroups" :key="gIdx">
-                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
-                            <div class="flex justify-between items-center border-b pb-1.5">
-                                <span class="font-black text-teal-900 text-xs" x-text="group.name"></span>
-                                <span class="bg-teal-100 text-teal-900 font-bold px-2 py-0.5 rounded text-[10px]" x-text="`Total Qty: ${group.qty}`"></span>
-                            </div>
-                            
-                            <div class="space-y-2 pt-1">
-                                <template x-for="unitIndex in group.qty" :key="unitIndex">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-[10px] font-mono text-slate-500 font-bold w-14 shrink-0" x-text="`Unit #${unitIndex}:`"></span>
-                                        <input type="text" 
-                                               x-model="group.serialList[unitIndex - 1]" 
-                                               placeholder="Enter unique serial no..." 
-                                               class="flex-1 p-2 border rounded-lg bg-white text-xs font-mono uppercase outline-none focus:border-teal-600">
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-                    </template>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[10px] uppercase font-bold text-slate-500 mb-1">Rating (1 to 5 Stars) *</label>
+                    <select x-model.number="editReviewForm.rating" class="w-full p-2.5 border rounded-xl bg-slate-50 text-xs font-bold outline-none cursor-pointer">
+                        <option value="5">⭐⭐⭐⭐⭐ (5 Stars)</option>
+                        <option value="4">⭐⭐⭐⭐ (4 Stars)</option>
+                        <option value="3">⭐⭐⭐ (3 Stars)</option>
+                        <option value="2">⭐⭐ (2 Stars)</option>
+                        <option value="1">⭐ (1 Star)</option>
+                    </select>
                 </div>
 
-                <button @click="saveOrderSerialNumbers()" class="w-full bg-teal-700 hover:bg-teal-800 text-white font-black py-3 rounded-xl uppercase text-xs shadow-md cursor-pointer">
-                    Save & Update Order Status
-                </button>
+                <div>
+                    <label class="block text-[10px] uppercase font-bold text-slate-500 mb-1">Review Comment *</label>
+                    <textarea rows="4" x-model="editReviewForm.comment" placeholder="Edit review comment..." class="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none focus:border-teal-600 resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="pt-2 flex gap-2">
+                <button @click="showEditReviewModal = false" class="flex-1 bg-slate-200 text-slate-700 font-bold py-3 rounded-xl uppercase text-xs cursor-pointer">Cancel</button>
+                <button @click="saveAdminReviewEdit()" class="flex-1 bg-teal-800 hover:bg-teal-900 text-white font-black py-3 rounded-xl uppercase text-xs shadow cursor-pointer">Save Changes</button>
             </div>
         </div>
     </div>
@@ -253,6 +293,7 @@
                 <nav class="flex items-center gap-2">
                     <button @click="currentView = 'products'" :class="currentView === 'products' ? 'bg-slate-700 text-teal-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-4 py-2 rounded-xl text-xs transition cursor-pointer">📦 Products Catalog</button>
                     <button @click="currentView = 'orders'" :class="currentView === 'orders' ? 'bg-slate-700 text-teal-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-4 py-2 rounded-xl text-xs transition cursor-pointer">📋 View Customer Orders</button>
+                    <button @click="currentView = 'reviews'; fetchAdminReviews();" :class="currentView === 'reviews' ? 'bg-slate-700 text-amber-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-4 py-2 rounded-xl text-xs transition cursor-pointer">⭐ Reviews Moderation</button>
                     <button @click="currentView = 'banners'" :class="currentView === 'banners' ? 'bg-slate-700 text-amber-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-4 py-2 rounded-xl text-xs transition cursor-pointer">🎨 Banners Studio</button>
                 </nav>
             </div>
@@ -293,23 +334,23 @@
                 <form @submit.prevent="saveProductPipeline()" class="p-6 space-y-4 max-h-[80vh] overflow-y-auto text-slate-800">
                     <div class="bg-teal-50 p-3.5 rounded-xl border border-teal-200 flex flex-col sm:flex-row justify-between items-center gap-3">
                         <div>
-                            <span class="font-black text-teal-900 text-xs block">🤖 AI Product Suite & Smart Margin Analyzer</span>
-                            <span class="text-[10px] text-teal-700">Auto-generates descriptions and calculates ideal wholesale margins.</span>
+                            <span class="font-black text-teal-900 text-xs block">🤖 Deep AI Auto-Fill & Smart Margin Analyzer</span>
+                            <span class="text-[10px] text-teal-700">Auto-generates multi-paragraph clinical specs, packaging info, and manufacturer details.</span>
                         </div>
                         <div class="flex gap-2 shrink-0">
-                            <button type="button" @click="aiAutoFillProduct()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-3 py-1.5 rounded-lg text-[11px] uppercase cursor-pointer shadow-xs">✨ AI Auto-Fill</button>
-                            <button type="button" @click="aiSmartMarginAnalyzer()" class="bg-teal-700 hover:bg-teal-800 text-white font-black px-3 py-1.5 rounded-lg text-[11px] uppercase cursor-pointer shadow-xs">📊 AI Margin Check</button>
+                            <button type="button" @click="aiAutoFillProduct()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-3.5 py-2 rounded-lg text-[11px] uppercase cursor-pointer shadow-xs">✨ Deep AI Auto-Fill</button>
+                            <button type="button" @click="aiSmartMarginAnalyzer()" class="bg-teal-700 hover:bg-teal-800 text-white font-black px-3.5 py-2 rounded-lg text-[11px] uppercase cursor-pointer shadow-xs">📊 Margin Check</button>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="sm:col-span-2">
                             <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Product Full Name *</label>
-                            <input type="text" x-model="productForm.name" required placeholder="e.g. Poratable DC Xray / Doctor Head Cap" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
+                            <input type="text" x-model="productForm.name" required placeholder="e.g. Poratable DC Xray / Alginate" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
                         </div>
                         <div class="sm:col-span-2">
                             <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Brand / Company Name *</label>
-                            <input type="text" x-model="productForm.company" required placeholder="e.g. S.B. Medical" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
+                            <input type="text" x-model="productForm.company" required placeholder="e.g. Vatech / 3M" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
                         </div>
                         <div>
                             <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Price (INR ₹ Listed Gross) *</label>
@@ -352,7 +393,6 @@
                             </select>
                         </div>
 
-                        <!-- MANUFACTURE & EXPIRY DATES -->
                         <div>
                             <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Manufacture Date (Mfg)</label>
                             <input type="date" x-model="productForm.mfg_date" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
@@ -362,30 +402,27 @@
                             <input type="date" x-model="productForm.exp_date" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
                         </div>
 
+                        <!-- MANUFACTURER INFO FIELD -->
                         <div class="sm:col-span-2 space-y-3 pt-2 border-t">
-                            <h4 class="font-black text-slate-800 uppercase text-xs">📋 Product Details & Specifications</h4>
+                            <h4 class="font-black text-slate-800 uppercase text-xs">📋 Product Details & Manufacturer Information</h4>
+                            <div>
+                                <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Manufacturer Information & Distributor Address *</label>
+                                <input type="text" x-model="productForm.manufacturer_info" required placeholder="e.g. Manufactured by S.B. Medical Corp, Mumbai. Distributed by S.B. Enterprises, Bank More, Dhanbad" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
+                            </div>
                             <div>
                                 <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">What's in the Box</label>
                                 <input type="text" x-model="productForm.what_in_box" placeholder="e.g. 1 x Main Unit, 1 x Charger" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
                             </div>
                             <div>
-                                <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Comprehensive Description</label>
-                                <textarea rows="3" x-model="productForm.description" placeholder="Write detailed clinical description..." class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none resize-none"></textarea>
+                                <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Deep Clinical Description & Specifications</label>
+                                <textarea rows="4" x-model="productForm.description" placeholder="Comprehensive multi-paragraph clinical details..." class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none resize-none"></textarea>
                             </div>
                         </div>
 
-                        <!-- AUTOMATIC MULTI-IMAGE UPLOAD -->
                         <div class="sm:col-span-2 space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <div class="flex justify-between items-center">
-                                <div>
-                                    <label class="block text-[10px] uppercase font-black text-teal-900 tracking-wider">📁 Upload Product Photos (Multiple)</label>
-                                    <span class="text-[10px] text-slate-500">Select 1 or more pictures from your computer (auto-saved to local server)</span>
-                                </div>
-                            </div>
-                            
+                            <label class="block text-[10px] uppercase font-black text-teal-900 tracking-wider">📁 Upload Product Photos (Multiple)</label>
                             <input type="file" id="productFilesInput" multiple accept="image/*" @change="previewSelectedFiles($event)" class="w-full text-xs text-slate-500 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-teal-700 file:text-white file:font-bold hover:file:bg-teal-800 cursor-pointer">
 
-                            <!-- Selected Images Live Previews -->
                             <div class="flex flex-wrap gap-2 pt-2" x-show="selectedFilePreviews.length > 0">
                                 <template x-for="(preview, idx) in selectedFilePreviews" :key="idx">
                                     <div class="relative w-14 h-14 rounded-lg border border-slate-300 overflow-hidden shadow-xs bg-white">
@@ -409,9 +446,8 @@
             <!-- 1. PRODUCTS CATALOG VIEW -->
             <div x-show="currentView === 'products'" class="grid grid-cols-1 lg:grid-cols-4 gap-6" x-transition>
                 
-                <!-- LEFT SIDEBAR ACTION CARDS -->
+                <!-- LEFT SIDEBAR -->
                 <div class="lg:col-span-1 space-y-4">
-                    <!-- Card 1: Add Product & Inventory Export -->
                     <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
                         <button @click="openAddProductModal()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-md cursor-pointer flex items-center justify-center gap-2 text-xs uppercase tracking-wide">
                             ✨ + Add New Product
@@ -421,7 +457,44 @@
                         </button>
                     </div>
 
-                    <!-- Card 2: Bulk Excel Import -->
+                    <!-- BULK WHATSAPP CAMPAIGN BUTTON CARD -->
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                        <h2 class="text-sm font-black text-slate-700 uppercase tracking-wider border-b pb-2">💬 WhatsApp Marketing</h2>
+                        <button @click="showBulkWhatsAppModal = true" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-3 rounded-xl transition text-[11px] uppercase tracking-wide cursor-pointer flex items-center justify-center gap-1.5 shadow-xs">
+                            <span>📢</span> Bulk WhatsApp Broadcast
+                        </button>
+                    </div>
+
+                    <!-- CARD: MONTH & YEAR WISE INVENTORY REPORT DOWNLOAD -->
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                        <h2 class="text-sm font-black text-slate-700 uppercase tracking-wider border-b pb-2">📅 Inventory Reports</h2>
+                        <div class="space-y-2">
+                            <div>
+                                <label class="block text-[10px] uppercase font-bold text-slate-500 mb-1">Select Month</label>
+                                <select x-model="reportMonth" class="w-full p-2 border rounded-xl bg-slate-50 text-xs font-bold outline-none cursor-pointer">
+                                    <option value="ALL">All Months</option>
+                                    <option value="0">January</option><option value="1">February</option><option value="2">March</option>
+                                    <option value="3">April</option><option value="4">May</option><option value="5">June</option>
+                                    <option value="6">July</option><option value="7">August</option><option value="8">September</option>
+                                    <option value="9">October</option><option value="10">November</option><option value="11">December</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase font-bold text-slate-500 mb-1">Select Year</label>
+                                <select x-model="reportYear" class="w-full p-2 border rounded-xl bg-slate-50 text-xs font-bold outline-none cursor-pointer">
+                                    <option value="ALL">All Years</option>
+                                    <option value="2025">2025</option>
+                                    <option value="2026">2026</option>
+                                    <option value="2027">2027</option>
+                                </select>
+                            </div>
+                            <button @click="downloadMonthlyInventoryReport()" class="w-full bg-teal-800 hover:bg-teal-900 text-white font-black py-2.5 px-3 rounded-xl transition text-[11px] uppercase tracking-wide cursor-pointer shadow-xs">
+                                📥 Download Period Report (.XLSX)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- CARD: BULK EXCEL IMPORT -->
                     <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
                         <h2 class="text-sm font-black text-slate-700 uppercase tracking-wider border-b pb-2">📦 Bulk Excel Import</h2>
                         <button @click="downloadExcelTemplate()" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold py-2 px-3 rounded-xl transition text-[11px] uppercase tracking-wide cursor-pointer flex items-center justify-center gap-1.5 shadow-xs">
@@ -433,7 +506,7 @@
                         </div>
                     </div>
 
-                    <!-- CARD 3: CATEGORY MANAGER WITH FLEXIBLE TOGGLE LOGO/EMOJI OPTIONS -->
+                    <!-- CATEGORY MANAGER -->
                     <aside class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm h-fit space-y-4" x-data="{ showCategoryManager: false, emojiDropdownOpen: false }">
                         <div class="flex justify-between items-center border-b pb-2">
                             <h2 class="text-sm font-black text-slate-700 uppercase tracking-wider">Category Manager</h2>
@@ -442,45 +515,28 @@
                             </button>
                         </div>
                     
-                        <!-- Add Category Form -->
                         <form @submit.prevent="submitNewDirectory()" class="space-y-3 text-xs font-semibold text-slate-600 relative">
                             <div>
                                 <label class="block mb-1 uppercase tracking-wide font-bold">Category Logo / Emoji Option *</label>
-                                
-                                <!-- Clickable Input Box to Toggle Dropdown or Custom Input -->
                                 <div class="flex gap-1.5 items-center">
                                     <div @click="emojiDropdownOpen = !emojiDropdownOpen" class="w-14 p-2.5 border rounded-xl bg-slate-50 text-center cursor-pointer flex items-center justify-center shadow-xs hover:border-teal-600 transition">
                                         <span class="text-lg font-mono" x-text="dirForm.icon || '💺'"></span>
                                     </div>
-                                    <input type="text" x-model="dirForm.icon" placeholder="Type or pick emoji/logo" class="flex-1 p-2.5 border rounded-xl bg-slate-50 text-xs outline-none focus:border-teal-600 font-mono">
+                                    <input type="text" x-model="dirForm.icon" placeholder="Emoji" class="flex-1 p-2.5 border rounded-xl bg-slate-50 text-xs outline-none focus:border-teal-600 font-mono">
                                 </div>
-                    
-                                <!-- Toggleable Emoji Dropdown Grid -->
-                                <div x-show="emojiDropdownOpen" 
-                                     @click.outside="emojiDropdownOpen = false" 
-                                     x-cloak 
-                                     x-transition 
-                                     class="mt-2 bg-white border-2 border-teal-600 rounded-2xl shadow-2xl p-3 z-50 grid grid-cols-6 gap-2">
+                                <div x-show="emojiDropdownOpen" @click.outside="emojiDropdownOpen = false" x-cloak class="mt-2 bg-white border-2 border-teal-600 rounded-2xl shadow-2xl p-3 z-50 grid grid-cols-6 gap-2">
                                     <template x-for="emo in ['💺', '📦', '🦷', '💉', '🔬', '🛡️', '✨', '🩹', '🩺', '⚡', '💊', '🥽', '🏥', '🧪', '📋', '⚙️', '🌟', '🛠️']">
-                                        <button type="button" 
-                                                @click="dirForm.icon = emo; emojiDropdownOpen = false;" 
-                                                class="p-2 hover:bg-teal-100 rounded-xl text-lg transition text-center cursor-pointer border border-slate-100 bg-slate-50" 
-                                                x-text="emo"></button>
+                                        <button type="button" @click="dirForm.icon = emo; emojiDropdownOpen = false;" class="p-2 hover:bg-teal-100 rounded-xl text-lg text-center cursor-pointer bg-slate-50" x-text="emo"></button>
                                     </template>
                                 </div>
                             </div>
-
                             <div>
                                 <label class="block mb-1 uppercase tracking-wide font-bold">Category Name *</label>
-                                <input type="text" x-model="dirForm.name" required placeholder="e.g., Orthodontics" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none focus:border-teal-600">
+                                <input type="text" x-model="dirForm.name" required placeholder="e.g., Orthodontics" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
                             </div>
-
-                            <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 rounded-xl transition shadow-sm cursor-pointer uppercase text-[10px] tracking-wider">
-                                ✨ Add Category
-                            </button>
+                            <button type="submit" class="w-full bg-slate-800 text-white font-bold py-2.5 rounded-xl cursor-pointer uppercase text-[10px]">✨ Add Category</button>
                         </form>
                     
-                        <!-- Collapsible Existing Categories List -->
                         <div x-show="showCategoryManager" x-transition.opacity class="border-t pt-3 space-y-2" x-cloak>
                             <label class="block text-[10px] uppercase font-bold text-slate-400">Existing Categories (<span x-text="dynamicDirectories.length"></span>)</label>
                             <div class="max-h-48 overflow-y-auto space-y-1.5 pr-1">
@@ -498,13 +554,20 @@
                     </aside>
                 </div>
 
-                <!-- RIGHT MAIN AREA: ACTIVE CATALOG TABLE -->
-                <section class="lg:col-span-3 bg-white p-5 rounded-2xl border shadow-sm overflow-hidden flex flex-col">
-                    <div class="flex justify-between items-center mb-4">
+                <!-- RIGHT MAIN AREA: CATALOG TABLE WITH LIVE SEARCH & LIVE PRODUCT COUNT -->
+                <section class="lg:col-span-3 bg-white p-5 rounded-2xl border shadow-sm overflow-hidden flex flex-col space-y-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-3 border-b pb-4">
                         <h2 class="text-sm font-black text-slate-700 uppercase tracking-wider">
-                            Active Catalog (<span x-text="products.length"></span>)
+                            ACTIVE CATALOG (<span x-text="filteredCatalogProducts().length"></span> Live Products)
                         </h2>
+                        
+                        <!-- LIVE SEARCH BAR -->
+                        <div class="w-full sm:w-72 relative">
+                            <input type="text" x-model="catalogSearchQuery" placeholder="Search by name, company, or HSN..." class="w-full bg-slate-50 border text-slate-900 placeholder-slate-400 font-medium py-2 pl-4 pr-10 rounded-xl outline-none text-xs focus:border-teal-600">
+                            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">🔍</span>
+                        </div>
                     </div>
+
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs border-collapse">
                             <thead>
@@ -519,7 +582,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <template x-for="item in products" :key="item.id">
+                                <template x-for="item in filteredCatalogProducts()" :key="item.id">
                                     <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition font-medium text-slate-700">
                                         <td class="p-3">
                                             <div class="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden border flex items-center justify-center">
@@ -550,13 +613,12 @@
                 </section>
             </div>
 
-            <!-- 2. ORDERS VIEW WITH RECONCILIATION FILTER & BULK REFUND UPLOAD WITH CREDIT DATES -->
+            <!-- 2. ORDERS VIEW -->
             <div x-show="currentView === 'orders'" class="bg-white border p-6 rounded-2xl shadow-sm space-y-4" style="display: none;" x-transition>
                 <div class="flex flex-col sm:flex-row justify-between items-center border-b pb-4 gap-3">
                     <h2 class="text-base font-black text-slate-800 uppercase">📋 Customer Orders History & Bulk Refund Settlement</h2>
                     
                     <div class="flex flex-wrap items-center gap-2">
-                        <!-- STATUS FILTER -->
                         <select x-model="orderStatusFilter" class="p-2 border rounded-xl font-bold bg-slate-50 text-xs outline-none cursor-pointer">
                             <option value="ALL">🔍 All Orders (<span x-text="orders.length"></span>)</option>
                             <option value="PLACED">⏳ Placed</option>
@@ -570,7 +632,6 @@
                             <option value="DELIVERED">✅ Delivered</option>
                         </select>
 
-                        <!-- MONTH SELECTOR -->
                         <select x-model="orderMonthFilter" class="p-2 border rounded-xl font-bold bg-slate-50 text-xs outline-none cursor-pointer">
                             <option value="ALL">All Months</option>
                             <option value="0">January</option><option value="1">February</option><option value="2">March</option>
@@ -579,7 +640,6 @@
                             <option value="9">October</option><option value="10">November</option><option value="11">December</option>
                         </select>
 
-                        <!-- YEAR SELECTOR -->
                         <select x-model="orderYearFilter" class="p-2 border rounded-xl font-bold bg-slate-50 text-xs outline-none cursor-pointer">
                             <option value="ALL">All Years</option>
                             <option value="2025">2025</option>
@@ -587,14 +647,12 @@
                             <option value="2027">2027</option>
                         </select>
 
-                        <!-- STRICTLY FILTERED EXPORT RECONCILIATION -->
                         <button @click="exportFilteredOrdersToExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-black px-3.5 py-2 rounded-xl text-xs uppercase cursor-pointer shadow-xs flex items-center gap-1.5">
                             <span>📥</span> Export Filtered (.XLSX)
                         </button>
                     </div>
                 </div>
 
-                <!-- BULK REFUND SETTLEMENT CARD WITH CREDIT DATE -->
                 <div class="bg-purple-50 border border-purple-200 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div class="space-y-0.5">
                         <span class="font-black text-purple-900 text-xs block uppercase">💳 Bulk Refund Settlement Sheet (.XLSX with Credit Date)</span>
@@ -628,7 +686,6 @@
                                 </td>
                                 <td class="p-3 font-black text-teal-800 font-mono" x-text="'₹' + formatCurrency(ord.total_amount)"></td>
                                 <td class="p-3 text-center">
-                                    <!-- CANCELLATION REQUEST APPROVAL UI -->
                                     <template x-if="['CANCELLATION_REQUESTED', 'REFUND_REQUESTED', 'REPLACEMENT_REQUESTED'].includes((ord.status || '').toUpperCase())">
                                         <div class="space-y-1.5 bg-amber-50 p-2.5 rounded-xl border border-amber-300">
                                             <p class="text-[9px] font-bold text-amber-900 leading-tight">Ticket / Reason: <span class="italic text-slate-800" x-text="ord.cancellation_reason || 'Customer request'"></span></p>
@@ -639,7 +696,6 @@
                                         </div>
                                     </template>
 
-                                    <!-- STANDARD DROPDOWN FOR OTHER STATUSES -->
                                     <template x-if="!['CANCELLATION_REQUESTED', 'REFUND_REQUESTED', 'REPLACEMENT_REQUESTED'].includes((ord.status || '').toUpperCase())">
                                         <div>
                                             <select :value="(ord.status || 'PLACED').toUpperCase()" @change="updateOrderStatus(ord, $event.target.value)" class="p-1.5 border rounded-xl font-bold cursor-pointer outline-none bg-slate-50">
@@ -663,7 +719,64 @@
                 </table>
             </div>
 
-            <!-- 3. BANNERS STUDIO VIEW -->
+            <!-- 3. REVIEWS MODERATION VIEW -->
+            <div x-show="currentView === 'reviews'" class="bg-white border p-6 rounded-2xl shadow-sm space-y-4" style="display: none;" x-transition>
+                <div class="flex justify-between items-center border-b pb-4">
+                    <div>
+                        <h2 class="text-base font-black text-slate-900 uppercase">⭐ Reviews Moderation & Management</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Inspect doctor reviews, edit inappropriate comments, or delete spam reviews.</p>
+                    </div>
+                    <button @click="fetchAdminReviews()" class="bg-teal-700 hover:bg-teal-800 text-white font-black px-4 py-2 rounded-xl text-xs uppercase cursor-pointer shadow">Refresh Reviews</button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-400 font-bold border-b">
+                                <th class="p-3">Product</th>
+                                <th class="p-3">Doctor Name</th>
+                                <th class="p-3">Rating</th>
+                                <th class="p-3">Comment</th>
+                                <th class="p-3">Photos</th>
+                                <th class="p-3">Date</th>
+                                <th class="p-3 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="rev in adminReviewsList" :key="rev.id">
+                                <tr class="border-b hover:bg-slate-50 transition">
+                                    <td class="p-3 font-bold text-slate-900" x-text="rev.product_name || `Product #${rev.product_id}`"></td>
+                                    <td class="p-3 font-bold text-teal-800" x-text="rev.doctor_name || 'Practitioner'"></td>
+                                    <td class="p-3 text-amber-500 font-black text-sm" x-text="'⭐'.repeat(rev.rating || 5)"></td>
+                                    <td class="p-3 text-slate-700 max-w-xs truncate" x-text="rev.comment"></td>
+                                    <td class="p-3">
+                                        <template x-if="rev.review_images">
+                                            <div class="flex gap-1 overflow-x-auto">
+                                                <template x-for="imgUrl in (typeof rev.review_images === 'string' ? JSON.parse(rev.review_images || '[]') : (rev.review_images || []))">
+                                                    <div class="w-10 h-10 bg-white rounded-lg border p-0.5 overflow-hidden shrink-0 shadow-xs">
+                                                        <img :src="imgUrl" class="w-full h-full object-cover">
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <template x-if="!rev.review_images">
+                                            <span class="text-slate-400 italic">No Photos</span>
+                                        </template>
+                                    </td>
+                                    <td class="p-3 text-slate-500 font-mono" x-text="formatDateDisplay(rev.created_at)"></td>
+                                    <td class="p-3 text-center space-x-1">
+                                        <button @click="openEditReviewModal(rev)" class="bg-teal-50 text-teal-800 font-bold py-1 px-2.5 rounded-lg border border-teal-200 cursor-pointer">Edit</button>
+                                        <button @click="deleteAdminReview(rev.id)" class="bg-red-50 text-red-600 font-bold py-1 px-2.5 rounded-lg border border-red-200 cursor-pointer">Delete</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                    <div x-show="adminReviewsList.length === 0" class="text-center py-12 text-slate-400 font-bold">No product reviews submitted yet.</div>
+                </div>
+            </div>
+
+            <!-- 4. BANNERS STUDIO VIEW -->
             <div x-show="currentView === 'banners'" class="bg-white border p-6 rounded-2xl shadow-sm space-y-6" style="display: none;" x-transition>
                 <div class="flex justify-between items-center border-b pb-4">
                     <h2 class="text-base font-black text-slate-900 uppercase">🎨 Store Banners Studio</h2>
@@ -793,9 +906,12 @@
                 banners: [],
                 dynamicDirectories: [],
                 enquiriesList: [],
+                adminReviewsList: [],
                 showBannerFormModal: false,
                 showAddProductModal: false,
                 showEnquiryQueueModal: false,
+                showEditReviewModal: false,
+                showBulkWhatsAppModal: false,
                 orderStatusFilter: 'ALL',
                 orderMonthFilter: 'ALL',
                 orderYearFilter: 'ALL',
@@ -807,6 +923,16 @@
                 deleteProductModal: { show: false, productId: '', productName: '' },
                 dirForm: { name: '', icon: '💺' },
                 selectedFilePreviews: [],
+                editReviewForm: { id: '', product_name: '', doctor_name: '', rating: 5, comment: '', review_images: [] },
+                catalogSearchQuery: '',
+                reportMonth: 'ALL',
+                reportYear: 'ALL',
+                
+                bulkWaForm: {
+                    numbers: '',
+                    message: '',
+                    imageFileBase64: ''
+                },
 
                 otpSent: false,
                 adminResetForm: { identity: '', otp: '', new_password: '', generatedOtp: '', userPhone: '' },
@@ -814,7 +940,7 @@
                 productForm: { 
                     id: '', name: '', company: '', price: '', directory_id: '', hsn: 'AL0001',
                     gst_rate: 5, stock: 10, mfg_date: '', exp_date: '', description: '',
-                    warranty: 'NA', what_in_box: ''
+                    warranty: 'NA', what_in_box: '', manufacturer_info: ''
                 },
                 
                 bannerForm: { 
@@ -842,6 +968,7 @@
                     await this.fetchIncomingOrders();
                     await this.fetchAdminBanners();
                     await this.fetchAdminEnquiries();
+                    await this.fetchAdminReviews();
                 },
 
                 async authenticateAdmin() {
@@ -872,7 +999,7 @@
                         this.isAdminLoggedIn = true;
                         await this.loadAdminData();
                     } catch(e) {
-                        alert("Could not reach backend at https://dentist-bazar-backend.onrender.com");
+                        alert("Could not reach backend API.");
                     }
                 },
 
@@ -1004,6 +1131,148 @@
                     } catch(e) { this.enquiriesList = []; }
                 },
 
+                async fetchAdminReviews() {
+                    try {
+                        const res = await fetch(`${API_BASE}/admin/reviews`);
+                        if (res.ok) this.adminReviewsList = await res.json();
+                    } catch(e) { this.adminReviewsList = []; }
+                },
+
+                filteredCatalogProducts() {
+                    const q = (this.catalogSearchQuery || '').toLowerCase().trim();
+                    return this.products.filter(p => {
+                        return !q || p.name.toLowerCase().includes(q) || (p.company && p.company.toLowerCase().includes(q)) || (p.hsn && p.hsn.toLowerCase().includes(q));
+                    });
+                },
+
+                downloadMonthlyInventoryReport() {
+                    const list = this.products.filter(p => {
+                        if (!p.created_at) return true;
+                        const d = new Date(p.created_at);
+                        const mMatch = this.reportMonth === 'ALL' || d.getMonth() == this.reportMonth;
+                        const yMatch = this.reportYear === 'ALL' || d.getFullYear() == this.reportYear;
+                        return mMatch && yMatch;
+                    });
+
+                    if (list.length === 0) { alert("No products found for the selected period."); return; }
+
+                    const data = list.map(p => ({
+                        'Product ID': p.id,
+                        'Product Name': p.name,
+                        'Brand / Company': p.company,
+                        'Price (INR)': p.price,
+                        'Stock Available': p.stock,
+                        'GST Slab': `${p.gst_rate}%`,
+                        'HSN Code': p.hsn,
+                        'Manufacturer Info': p.manufacturer_info || 'S.B. Enterprises, Bank More, Dhanbad',
+                        'Uploaded Date': p.created_at ? new Date(p.created_at).toLocaleDateString('en-GB') : 'N/A'
+                    }));
+
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Inventory Report");
+                    XLSX.writeFile(wb, `SBE_Inventory_Report_M${this.reportMonth}_Y${this.reportYear}.xlsx`);
+                },
+
+                handleBulkImageUpload(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            this.bulkWaForm.imageFileBase64 = e.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                },
+
+                executeOneClickBulkBroadcast() {
+                    const rawNums = (this.bulkWaForm.numbers || '').trim();
+                    const msg = (this.bulkWaForm.message || '').trim();
+                    if (!rawNums || !msg) {
+                        alert("Please enter at least one mobile number and a promotional message.");
+                        return;
+                    }
+                    const numbers = rawNums.split(/[\n,]+/).map(n => n.trim()).filter(n => n.length >= 10);
+                    if (numbers.length === 0) {
+                        alert("No valid numbers detected.");
+                        return;
+                    }
+
+                    if (this.bulkWaForm.imageFileBase64 && navigator.clipboard) {
+                        fetch(this.bulkWaForm.imageFileBase64)
+                            .then(res => res.blob())
+                            .then(blob => {
+                                navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]).catch(() => {});
+                            }).catch(() => {});
+                    }
+
+                    let delay = 0;
+                    numbers.forEach((num) => {
+                        setTimeout(() => {
+                            let fullMsg = msg;
+                            if (this.bulkWaForm.imageFileBase64) {
+                                fullMsg += `\n\n[Image attached in clipboard - Press Ctrl+V to paste]`;
+                            }
+                            const encoded = encodeURIComponent(fullMsg);
+                            window.open(`https://api.whatsapp.com/send?phone=91${num}&text=${encoded}`, '_blank');
+                        }, delay);
+                        delay += 700;
+                    });
+
+                    alert(`🚀 Initiated broadcast to ${numbers.length} doctor(s)! Each chat is opening with your message. (Image copied to clipboard: press Ctrl+V to paste).`);
+                    this.showBulkWhatsAppModal = false;
+                    this.bulkWaForm = { numbers: '', message: '', imageFileBase64: '' };
+                },
+
+                openEditReviewModal(rev) {
+                    this.editReviewForm = {
+                        id: rev.id,
+                        product_name: rev.product_name || `Product #${rev.product_id}`,
+                        doctor_name: rev.doctor_name || 'Practitioner',
+                        rating: rev.rating || 5,
+                        comment: rev.comment || '',
+                        review_images: rev.review_images || []
+                    };
+                    this.showEditReviewModal = true;
+                },
+
+                async saveAdminReviewEdit() {
+                    try {
+                        const res = await fetch(`${API_BASE}/admin/reviews/${this.editReviewForm.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                rating: this.editReviewForm.rating,
+                                comment: this.editReviewForm.comment
+                            })
+                        });
+                        if (res.ok) {
+                            this.showEditReviewModal = false;
+                            await this.fetchAdminReviews();
+                            alert("Review updated successfully!");
+                        } else {
+                            alert("Failed to update review.");
+                        }
+                    } catch(e) {
+                        alert("Server error updating review.");
+                    }
+                },
+
+                async deleteAdminReview(revId) {
+                    if (!confirm("Are you sure you want to delete this doctor review?")) return;
+                    try {
+                        const res = await fetch(`${API_BASE}/admin/reviews/${revId}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            await this.fetchAdminReviews();
+                            alert("Review deleted successfully!");
+                        } else {
+                            alert("Failed to delete review.");
+                        }
+                    } catch(e) {
+                        alert("Server error deleting review.");
+                    }
+                },
+
                 async resolveAndRemoveEnquiry(id) {
                     try {
                         await fetch(`${API_BASE}/enquiries/${id}`, { method: 'DELETE' });
@@ -1016,7 +1285,7 @@
                         id: '', name: '', company: '', price: '', 
                         directory_id: this.dynamicDirectories[0]?.id || '', 
                         hsn: 'AL0001', gst_rate: 5, stock: 10, mfg_date: '', exp_date: '', 
-                        description: '', warranty: 'NA', what_in_box: ''
+                        description: '', warranty: 'NA', what_in_box: '', manufacturer_info: 'Manufactured under ISO compliance. Distributed by S.B. Enterprises, Bank More, Dhanbad (JH)'
                     };
                     this.selectedFilePreviews = [];
                     const fileEl = document.getElementById('productFilesInput');
@@ -1025,18 +1294,11 @@
                 },
 
                 aiAutoFillProduct() {
-                    const nameLower = (this.productForm.name || '').toLowerCase();
-                    if (nameLower.includes('xray') || nameLower.includes('x-ray')) {
-                        this.productForm.company = this.productForm.company || 'Woodpecker Medical';
-                        this.productForm.hsn = '90184900';
-                        this.productForm.gst_rate = 18;
-                        this.productForm.warranty = '1-Year Comprehensive Manufacturer Warranty';
-                        this.productForm.what_in_box = '1 x Main Portable DC Unit, 1 x Power Adapter, 1 x Battery Pack, 1 x Operation Manual, 1 x Warranty Card';
-                        this.productForm.description = 'High-frequency portable DC dental X-ray system engineered for sharp diagnostic radiography with minimal radiation exposure.';
-                    } else {
-                        this.productForm.description = `Professional-grade ${this.productForm.name || 'dental instrument'} manufactured for clinical durability.`;
-                        this.productForm.what_in_box = '1 x Standard Equipment / Packaging Set';
-                    }
+                    const name = this.productForm.name || 'Clinical Item';
+                    const comp = this.productForm.company || 'Medical Brand';
+                    this.productForm.description = `Professional-grade ${name} manufactured by ${comp} for high-precision clinical and dental applications. Features exceptional durability, sterilizability, and safety standards conforming to ISO specifications. Designed for optimal ergonomics and reliable day-to-day practitioner performance.`;
+                    this.productForm.manufacturer_info = `Manufactured by ${comp} Global Operations. Distributed & Quality Tested by S.B. Enterprises, Bank More, Dhanbad, Jharkhand - 826001.`;
+                    this.productForm.what_in_box = `1 x Primary ${name} Unit, 1 x Accessories Pack, 1 x User Manual & Inspection Certificate.`;
                 },
 
                 aiSmartMarginAnalyzer() {
@@ -1083,7 +1345,8 @@
                         mfg_date: prod.mfg_date ? prod.mfg_date.substring(0, 10) : '',
                         exp_date: prod.exp_date ? prod.exp_date.substring(0, 10) : '',
                         description: prod.description || '',
-                        what_in_box: prod.what_in_box || ''
+                        what_in_box: prod.what_in_box || '',
+                        manufacturer_info: prod.manufacturer_info || ''
                     };
                     
                     let imgs = [];
@@ -1111,6 +1374,7 @@
                     formData.append('gst_rate', this.productForm.gst_rate || 5);
                     formData.append('description', this.productForm.description || '');
                     formData.append('what_in_box', this.productForm.what_in_box || '');
+                    formData.append('manufacturer_info', this.productForm.manufacturer_info || '');
 
                     if (this.productForm.mfg_date) formData.append('mfg_date', this.productForm.mfg_date);
                     if (this.productForm.exp_date) formData.append('exp_date', this.productForm.exp_date);
@@ -1174,6 +1438,7 @@
                         "Warranty Months": 12,
                         "Mfg Date": "2026-01-15",
                         "Exp Date": "2028-01-15",
+                        "Manufacturer Info": "3M Health Care, USA",
                         "What in the Box": "1 x Syringe, 1 x Shade Guide",
                         "Description": "High quality universal restorative composite kit."
                     }];
@@ -1282,6 +1547,7 @@
                                 fd.append('has_warranty', Number(row['Warranty Months']) > 0);
                                 fd.append('mfg_date', row['Mfg Date'] || '');
                                 fd.append('exp_date', row['Exp Date'] || '');
+                                fd.append('manufacturer_info', row['Manufacturer Info'] || '');
                                 fd.append('description', row['Description'] || '');
                                 fd.append('what_in_box', row['What in the Box'] || '');
                                 await fetch(`${API_BASE}/products`, { method: 'POST', body: fd });
@@ -1512,6 +1778,7 @@
                         'GST Slab': `${p.gst_rate}%`,
                         'HSN Code': p.hsn || '',
                         'Category': p.category_name || 'General',
+                        'Manufacturer Info': p.manufacturer_info || 'S.B. Enterprises, Bank More, Dhanbad',
                         'Warranty': p.has_warranty ? `${p.warranty_months} Months` : 'None',
                         'Mfg Date': p.mfg_date ? p.mfg_date.substring(0, 10) : '',
                         'Exp Date': p.exp_date ? p.exp_date.substring(0, 10) : ''

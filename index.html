@@ -122,17 +122,17 @@
         </div>
     </div>
 
-    <!-- PRODUCT RATING & REVIEW MODAL -->
+    <!-- PRODUCT RATING & REVIEW MODAL (WITH EDIT & PHOTO REMOVAL SUPPORT) -->
     <div x-show="reviewModalOpen" class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-[10000]" style="display: none;" x-cloak>
         <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border p-6 space-y-4 relative max-h-[90vh] overflow-y-auto" @click.outside="reviewModalOpen = false">
             <header class="flex justify-between items-start border-b pb-3">
                 <div>
-                    <h3 class="text-sm font-black text-teal-900 uppercase tracking-wide">⭐ Rate & Review Delivered Products</h3>
+                    <h3 class="text-sm font-black text-teal-900 uppercase tracking-wide">⭐ Rate, Review & Edit Products</h3>
                     <p class="text-[11px] font-bold text-slate-500 font-mono mt-0.5" x-text="`Order Ref: #SBE-ORD-${selectedReviewOrder?.id}`"></p>
                 </div>
                 <button @click="reviewModalOpen = false" class="text-slate-400 hover:text-slate-800 font-bold text-sm cursor-pointer">✕ Close</button>
             </header>
-
+    
             <div class="space-y-4">
                 <template x-for="(item, iIdx) in parseOrderItems(selectedReviewOrder?.items)" :key="iIdx">
                     <div class="bg-slate-50 p-4 rounded-2xl border space-y-3">
@@ -140,6 +140,8 @@
                             <span class="font-bold text-slate-900 text-xs" x-text="item.name"></span>
                             <span class="text-[10px] text-teal-800 font-mono" x-text="`Qty: ${item.qty}`"></span>
                         </div>
+    
+                        <!-- SELECT RATING -->
                         <div class="space-y-1">
                             <label class="text-[9px] uppercase font-black text-slate-400 block">Select Rating</label>
                             <div class="flex items-center gap-1">
@@ -148,17 +150,81 @@
                                 </template>
                             </div>
                         </div>
+    
+                        <!-- WRITE REVIEW COMMENT -->
                         <div class="space-y-1">
-                            <label class="text-[9px] uppercase font-black text-slate-400 block">Write Review Comment</label>
+                            <label class="text-[9px] uppercase font-black text-slate-400 block">Edit Review Comment</label>
                             <textarea rows="2" x-model="productRatings[item.id].comment" placeholder="How was the quality of this equipment/material?" class="w-full p-2.5 border rounded-xl bg-white text-xs outline-none focus:border-teal-600 resize-none"></textarea>
+                        </div>
+    
+                        <!-- UPLOAD & MANAGE PHOTOS -->
+                        <div class="space-y-2 mt-2">
+                            <label class="text-[9px] uppercase font-black text-slate-400 block">Upload Product / Clinic Photos (Multiple Allowed)</label>
+                            <input type="file" accept="image/*" multiple @change="handleReviewImageUpload(item.id, $event)" class="text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-teal-700 file:text-white hover:file:bg-teal-800 cursor-pointer w-full bg-white border rounded-xl p-1">
+    
+                            <!-- PREVIEW THUMBNAILS WITH DELETE OPTION -->
+                            <template x-if="productRatings[item.id]?.review_images && productRatings[item.id].review_images.length > 0">
+                                <div class="flex gap-2 overflow-x-auto py-1">
+                                    <template x-for="(imgSrc, imgIdx) in productRatings[item.id].review_images" :key="imgIdx">
+                                        <div class="relative w-14 h-14 bg-white rounded-xl border p-0.5 shrink-0 shadow-xs group">
+                                            <img :src="imgSrc" class="w-full h-full object-cover rounded-lg">
+                                            <button type="button" @click="removeReviewImage(item.id, imgIdx)" class="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center opacity-90 hover:opacity-100 cursor-pointer shadow">✕</button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </template>
             </div>
-
+    
             <button @click="submitProductReviews()" class="w-full bg-teal-800 hover:bg-teal-900 text-white font-black py-3 rounded-xl uppercase text-xs shadow cursor-pointer">
-                Submit Reviews & Ratings
+                Save & Update Reviews
             </button>
+        </div>
+    </div>
+
+    <!-- REVIEW DETAIL POPUP MODAL (FULL VIEW OF REVIEW & IMAGES) -->
+    <div x-show="reviewDetailModalOpen" class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-[10010]" style="display: none;" x-cloak>
+        <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border p-6 space-y-4 relative max-h-[90vh] overflow-y-auto" @click.outside="reviewDetailModalOpen = false">
+            <header class="flex justify-between items-start border-b pb-3">
+                <div>
+                    <h3 class="text-sm font-black text-teal-900 uppercase tracking-wide">⭐ Practitioner Review Details</h3>
+                    <p class="text-[11px] font-bold text-slate-500 font-mono mt-0.5" x-text="selectedReview?.doctor_name || 'Practitioner'"></p>
+                </div>
+                <button @click="reviewDetailModalOpen = false" class="text-slate-400 hover:text-slate-800 font-bold text-sm cursor-pointer">✕ Close</button>
+            </header>
+
+            <div class="space-y-4">
+                <div class="flex items-center justify-between bg-slate-50 p-3.5 rounded-2xl border">
+                    <div>
+                        <span class="text-[10px] uppercase font-black text-slate-400 block">Rating Awarded</span>
+                        <span class="text-lg text-amber-500 font-black" x-text="'⭐'.repeat(selectedReview?.rating || 5)"></span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] uppercase font-black text-slate-400 block">Review Date</span>
+                        <span class="text-xs font-mono font-bold text-slate-700" x-text="formatDateDisplay(selectedReview?.created_at)"></span>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[10px] uppercase font-black text-slate-400 block">Review Comment</label>
+                    <p class="bg-slate-50 p-4 rounded-2xl border text-xs text-slate-800 leading-relaxed" x-text="selectedReview?.comment || 'No comment provided.'"></p>
+                </div>
+
+                <template x-if="selectedReview?.review_images">
+                    <div class="space-y-2">
+                        <label class="text-[10px] uppercase font-black text-slate-400 block">Attached Clinic / Product Photos</label>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <template x-for="imgUrl in (typeof selectedReview.review_images === 'string' ? JSON.parse(selectedReview.review_images || '[]') : (selectedReview.review_images || []))">
+                                <div class="bg-slate-50 rounded-2xl border p-1.5 shadow-xs overflow-hidden">
+                                    <img :src="imgUrl" class="w-full h-32 object-cover rounded-xl border">
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
         </div>
     </div>
 
@@ -744,7 +810,7 @@
                                                 <button @click="openBankRefundModal(ord)" class="bg-red-700 hover:bg-red-800 text-white font-bold px-3 py-2 rounded-xl text-[10px] uppercase cursor-pointer shadow flex items-center gap-1">
                                                     <span>💰</span> Request Refund
                                                 </button>
-                                                <button @click="requestProductReplacement(ord)" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3 py-2 rounded-xl text-[10px] uppercase cursor-pointer shadow flex items-center gap-1">
+                                                <button @click="requestProductReplacement(ord)" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3.5 py-2 rounded-xl text-[10px] uppercase cursor-pointer shadow flex items-center gap-1">
                                                     <span>🔄</span> Request Replacement
                                                 </button>
 
@@ -848,99 +914,188 @@
     </div>
 
     <!-- PRODUCT DETAILS MODAL -->
-    <div x-show="modalOpen" class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" style="display: none;" x-cloak>
-        <div class="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border flex flex-col h-[85vh] overflow-hidden" @click.outside="modalOpen = false">
+    <div x-show="modalOpen" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto" style="display: none;" x-cloak>
+        <div class="bg-white rounded-3xl max-w-5xl w-full shadow-2xl border flex flex-col max-h-[92vh] overflow-hidden my-auto" @click.outside="modalOpen = false">
             <header class="bg-white border-b py-3 px-6 flex justify-between items-center shrink-0">
-                <span class="text-teal-800 font-bold uppercase text-xs" x-text="selectedProduct?.company || 'Medical Distribution'"></span>
-                <button @click="modalOpen = false" class="text-slate-400 hover:text-slate-700 font-black text-sm cursor-pointer">✕ Close View</button>
+                <span class="text-teal-800 font-black uppercase text-xs tracking-wider" x-text="selectedProduct?.company || 'Medical Distribution'"></span>
+                <button @click="modalOpen = false" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs px-3 py-1.5 rounded-xl cursor-pointer transition">✕ Close View</button>
             </header>
 
-            <div class="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-12 bg-white">
-                <div class="md:col-span-6 p-6 border-r flex gap-3 h-full overflow-hidden bg-white">
-                    <div class="w-16 flex flex-col gap-2 overflow-y-auto shrink-0 pr-1">
-                        <template x-for="(img, idx) in getProductImageArray(selectedProduct)" :key="idx">
-                            <div @click="activeImageIndex = idx" :class="activeImageIndex === idx ? 'border-teal-700 shadow-md' : 'border-slate-200 opacity-60'" class="w-full h-16 border-2 rounded-xl p-1 bg-white flex items-center justify-center cursor-pointer transition">
-                                <img :src="img" class="max-h-full max-w-full object-contain mix-blend-multiply">
-                            </div>
-                        </template>
+            <div class="flex-1 overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-12 bg-white p-4 sm:p-6 gap-6">
+                    <!-- LEFT COLUMN: IMAGE GALLERY -->
+                    <div class="md:col-span-6 flex flex-col sm:flex-row gap-3">
+                        <div class="flex sm:flex-col gap-2 overflow-x-auto sm:overflow-y-auto shrink-0 pb-2 sm:pb-0 max-h-[400px]">
+                            <template x-for="(img, idx) in getProductImageArray(selectedProduct)" :key="idx">
+                                <div @click="activeImageIndex = idx" :class="activeImageIndex === idx ? 'border-teal-700 ring-2 ring-teal-400 shadow-md' : 'border-slate-200 opacity-70'" class="w-16 h-16 sm:w-20 sm:h-20 border-2 rounded-2xl p-1.5 bg-white flex items-center justify-center cursor-pointer transition shrink-0">
+                                    <img :src="img" class="max-h-full max-w-full object-contain mix-blend-multiply">
+                                </div>
+                            </template>
+                        </div>
+                        <div class="flex-1 border rounded-3xl bg-slate-50/60 p-6 flex items-center justify-center min-h-[300px] sm:min-h-[420px] relative shadow-inner">
+                            <img :src="getProductImageArray(selectedProduct)[activeImageIndex]" class="max-h-[380px] max-w-full object-contain mix-blend-multiply drop-shadow-md">
+                        </div>
                     </div>
-                    <div class="flex-1 border rounded-2xl bg-slate-50/50 p-4 flex items-center justify-center h-full">
-                        <img :src="getProductImageArray(selectedProduct)[activeImageIndex]" class="max-h-full max-w-full object-contain mix-blend-multiply">
+
+                    <!-- RIGHT COLUMN: PRODUCT SPECIFICATIONS & ACTIONS -->
+                    <div class="md:col-span-6 flex flex-col justify-between space-y-4">
+                        <div class="space-y-3">
+                            <h2 class="text-lg sm:text-xl font-black text-slate-900 leading-snug" x-text="selectedProduct?.name"></h2>
+                            
+                            <div class="bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200 p-4 rounded-2xl flex items-baseline justify-between shadow-xs">
+                                <div>
+                                    <span class="text-[10px] uppercase font-black text-teal-800 tracking-wider block">Special Practitioner Price</span>
+                                    <span class="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight" x-text="'₹ ' + formatCurrency(selectedProduct?.price)"></span>
+                                </div>
+                                <div>
+                                    <template x-if="Number(selectedProduct?.stock ?? 0) <= 0">
+                                        <span class="text-[10px] text-red-700 font-black uppercase bg-red-100 border border-red-300 px-3 py-1 rounded-full">Out of Stock</span>
+                                    </template>
+                                    <template x-if="Number(selectedProduct?.stock ?? 0) > 0 && Number(selectedProduct?.stock ?? 0) <= 5">
+                                        <span class="text-[10px] text-amber-900 font-black uppercase bg-amber-100 border border-amber-300 px-3 py-1 rounded-full animate-pulse" x-text="`⚡ Only ${selectedProduct.stock} left`"></span>
+                                    </template>
+                                    <template x-if="Number(selectedProduct?.stock ?? 0) > 5">
+                                        <span class="text-[10px] text-emerald-800 font-black uppercase bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-full">✅ In Stock</span>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-50 border p-3.5 rounded-2xl space-y-2">
+                                <label class="text-[10px] uppercase font-black text-slate-500 block">Check Dhanbad Hub Delivery Pincode 🚚</label>
+                                <div class="flex gap-2">
+                                    <input type="text" x-model="checkPincode" maxlength="6" placeholder="Enter 6-digit Pincode (e.g. 826001)" class="flex-1 p-2.5 border bg-white rounded-xl text-xs outline-none focus:border-teal-700 font-mono">
+                                    <button type="button" @click="estimateDeliveryTime()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase cursor-pointer shadow">Check</button>
+                                </div>
+                                <p class="text-[11px] font-bold mt-1" :class="deliveryResultClass" x-text="deliveryMessage"></p>
+                            </div>
+                        </div>
+
+                        <!-- STICKY BOTTOM ACTIONS IN MODAL -->
+                        <div class="pt-3 border-t grid grid-cols-2 gap-3 shrink-0">
+                            <template x-if="Number(selectedProduct?.stock ?? 0) > 0">
+                                <button @click="addToCart(selectedProduct, false)" class="w-full bg-[#ff9f00] hover:bg-[#e08c00] text-white font-black py-3.5 rounded-2xl text-xs uppercase cursor-pointer shadow-md transition">🛒 Add To Cart</button>
+                            </template>
+                            <template x-if="Number(selectedProduct?.stock ?? 0) <= 0">
+                                <button disabled class="w-full bg-slate-300 text-slate-500 font-black py-3.5 rounded-2xl text-xs uppercase cursor-not-allowed">Sold Out</button>
+                            </template>
+
+                            <template x-if="Number(selectedProduct?.stock ?? 0) > 0">
+                                <button @click="buyNowAction(selectedProduct)" class="w-full bg-[#fb641b] hover:bg-[#e0530f] text-white font-black py-3.5 rounded-2xl text-xs uppercase cursor-pointer shadow-md transition">⚡ Buy Now</button>
+                            </template>
+                            <template x-if="Number(selectedProduct?.stock ?? 0) <= 0">
+                                <button disabled class="w-full bg-slate-200 text-slate-400 font-black py-3.5 rounded-2xl text-xs uppercase cursor-not-allowed">Unavailable</button>
+                            </template>
+                        </div>
                     </div>
                 </div>
 
-                <div class="md:col-span-6 p-6 flex flex-col justify-between max-h-full overflow-y-auto space-y-4">
-                    <div class="space-y-3">
-                        <h3 class="text-base font-black text-slate-900" x-text="selectedProduct?.name"></h3>
-                        <div class="bg-slate-50 p-3.5 border rounded-2xl flex justify-between items-baseline">
-                            <span class="text-2xl font-black text-slate-900" x-text="'₹ ' + formatCurrency(selectedProduct?.price)"></span>
-                            <div>
-                                <template x-if="Number(selectedProduct?.stock ?? 0) <= 0">
-                                    <span class="text-[10px] text-red-700 font-bold uppercase bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">Out of Stock</span>
-                                </template>
-                                <template x-if="Number(selectedProduct?.stock ?? 0) > 0 && Number(selectedProduct?.stock ?? 0) <= 5">
-                                    <span class="text-[10px] text-amber-800 font-bold uppercase bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full" x-text="`Only ${selectedProduct.stock} Available`"></span>
-                                </template>
-                            </div>
-                        </div>
+                <!-- ALL DETAILS SECTION -->
+                <div class="bg-white border-t p-4 sm:p-6 space-y-4" x-data="{ activeDetailsTab: 'specs' }">
+                    <h3 class="text-sm font-black uppercase text-slate-900 tracking-wider">All details</h3>
+                    
+                    <!-- TAB BUTTONS BAR -->
+                    <div class="flex items-center gap-2 border-b pb-3">
+                        <button @click="activeDetailsTab = 'specs'" :class="activeDetailsTab === 'specs' ? 'bg-slate-900 text-white font-black shadow' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold'" class="px-4 py-2 rounded-xl text-xs uppercase transition cursor-pointer">Specifications</button>
+                        <button @click="activeDetailsTab = 'desc'" :class="activeDetailsTab === 'desc' ? 'bg-slate-900 text-white font-black shadow' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold'" class="px-4 py-2 rounded-xl text-xs uppercase transition cursor-pointer">Description</button>
+                        <button @click="activeDetailsTab = 'mfg'" :class="activeDetailsTab === 'mfg' ? 'bg-slate-900 text-white font-black shadow' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold'" class="px-4 py-2 rounded-xl text-xs uppercase transition cursor-pointer">Manufacturer info</button>
+                    </div>
 
-                        <div>
-                            <span class="text-[10px] uppercase font-black text-slate-400 block mb-1">Clinical Description</span>
-                            <p class="text-slate-600 text-xs leading-relaxed" x-text="selectedProduct?.description || 'Manufactured with clinical precision and high durability meeting international ISO/CE medical standards.'"></p>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-2 bg-slate-50 border p-2.5 rounded-xl text-[11px]">
-                            <div>
-                                <span class="text-[9px] uppercase text-slate-400 font-black block">Manufacture Date</span>
-                                <span class="text-slate-800 font-bold" x-text="formatDateDisplay(selectedProduct?.mfg_date)"></span>
-                            </div>
-                            <div>
-                                <span class="text-[9px] uppercase text-slate-400 font-black block">Expiration Date</span>
-                                <span class="font-bold text-amber-700" x-text="selectedProduct?.exp_date ? formatDateDisplay(selectedProduct.exp_date) : 'Non-Consumable / Lifetime'"></span>
-                            </div>
-                        </div>
-
-                        <div class="bg-slate-50 border p-2.5 rounded-xl text-[11px] flex justify-between items-center">
-                            <div>
-                                <span class="text-[9px] uppercase text-slate-400 font-black block">Warranty Protection</span>
-                                <span class="font-bold text-slate-800" x-text="hasProductWarranty(selectedProduct) ? `${selectedProduct.warranty_months || 6} Months Manufacturer Warranty` : 'Consumable Material (No Warranty)'"></span>
-                            </div>
-                            <span :class="hasProductWarranty(selectedProduct) ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-slate-200 text-slate-600 border-slate-300'" class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase border">
-                                <span x-text="hasProductWarranty(selectedProduct) ? '🛡️ Covered' : '⚪ Standard'"></span>
-                            </span>
-                        </div>
-
-                        <div class="bg-slate-50 border p-3 rounded-xl space-y-2">
-                            <label class="text-[10px] uppercase font-black text-slate-500 block">Check Dhanbad Hub Delivery Pincode 🚚</label>
-                            <div class="flex gap-2">
-                                <input type="text" x-model="checkPincode" maxlength="6" placeholder="Enter 6-digit Pincode (e.g. 826001)" class="flex-1 p-2 border bg-white rounded-xl text-xs outline-none focus:border-teal-700 font-mono">
-                                <button type="button" @click="estimateDeliveryTime()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase cursor-pointer">Check</button>
-                            </div>
-                            <p class="text-[11px] font-bold mt-1" :class="deliveryResultClass" x-text="deliveryMessage"></p>
+                    <!-- TAB 1: SPECIFICATIONS -->
+                    <div x-show="activeDetailsTab === 'specs'" class="space-y-4 text-xs">
+                        <h4 class="font-black text-slate-800 uppercase tracking-wide">General</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-8 border rounded-2xl p-4 bg-slate-50/60">
+                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Brand</span><span class="font-black text-slate-900" x-text="selectedProduct?.company || 'S.B. Certified'"></span></div>
+                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Product ID / Code</span><span class="font-mono font-black text-teal-800" x-text="`SBE-PRD-${selectedProduct?.id}`"></span></div>
+                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Ideal For</span><span class="font-black text-slate-900">Dental & Medical Practitioners</span></div>
+                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Category Standard</span><span class="font-black text-slate-900">ISO / CE Certified Medical Grade</span></div>
+                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Manufacture Date</span><span class="font-mono font-bold text-slate-800" x-text="formatDateDisplay(selectedProduct?.mfg_date)"></span></div>
+                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Expiration / Validity</span><span class="font-mono font-bold text-amber-700" x-text="selectedProduct?.exp_date ? formatDateDisplay(selectedProduct.exp_date) : 'Non-Consumable / Lifetime'"></span></div>
+                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Warranty Protection</span><span class="font-black text-slate-900" x-text="hasProductWarranty(selectedProduct) ? `${selectedProduct.warranty_months || 6} Months` : 'Standard Standard'"></span></div>
+                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Fulfillment Hub</span><span class="font-black text-teal-900">Bank More, Dhanbad (JH)</span></div>
                         </div>
                     </div>
 
-                    <div class="pt-3 border-t grid grid-cols-2 gap-3 shrink-0">
-                        <template x-if="Number(selectedProduct?.stock ?? 0) > 0">
-                            <button @click="addToCart(selectedProduct, false)" class="w-full bg-[#ff9f00] hover:bg-[#e08c00] text-white font-black py-3 rounded-2xl text-xs uppercase cursor-pointer shadow">
-                                🛒 Add To Cart
-                            </button>
-                        </template>
-                        <template x-if="Number(selectedProduct?.stock ?? 0) <= 0">
-                            <button disabled class="w-full bg-slate-300 text-slate-500 font-black py-3 rounded-2xl text-xs uppercase cursor-not-allowed">
-                                Sold Out
-                            </button>
-                        </template>
+                    <!-- TAB 2: DESCRIPTION -->
+                    <div x-show="activeDetailsTab === 'desc'" class="space-y-3 text-xs" style="display: none;" x-cloak>
+                        <h4 class="font-black text-slate-800 uppercase tracking-wide">Clinical Description & Usage</h4>
+                        <p class="text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-2xl border" x-text="selectedProduct?.description || 'Professional-grade clinical equipment and material manufactured for absolute precision, safety, and clinical durability.'"></p>
+                    </div>
 
-                        <template x-if="Number(selectedProduct?.stock ?? 0) > 0">
-                            <button @click="buyNowAction(selectedProduct)" class="w-full bg-[#fb641b] hover:bg-[#e0530f] text-white font-black py-3 rounded-2xl text-xs uppercase cursor-pointer shadow">
-                                ⚡ Buy Now
-                            </button>
+                    <!-- TAB 3: MANUFACTURER INFO -->
+                    <div x-show="activeDetailsTab === 'mfg'" class="space-y-3 text-xs" style="display: none;" x-cloak>
+                        <h4 class="font-black text-slate-800 uppercase tracking-wide">Manufacturer & Distributor Details</h4>
+                        <div class="bg-slate-50 p-4 rounded-2xl border space-y-2">
+                            <p class="font-bold text-slate-900">Distributed By: S.B. Enterprises</p>
+                            <p class="text-slate-600">Registered Address: 208, 2nd Floor, Textile Market, Bank More, Dhanbad, Jharkhand - 826001</p>
+                            <p class="text-slate-600 font-mono">Customer Support: +91 9955335236 | sbenterprisessnd@gmail.com</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RATINGS AND REVIEWS SECTION -->
+                <div class="bg-white border-t p-4 sm:p-6 space-y-4">
+                    <div class="flex justify-between items-center border-b pb-3">
+                        <h3 class="text-sm font-black uppercase text-slate-900 tracking-wider">Ratings and reviews</h3>
+                        <span class="text-xs text-slate-500 font-bold" x-text="`${productReviews.length} Verified Buyer(s)`"></span>
+                    </div>
+                
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" x-show="productReviews.length > 0">
+                        <template x-for="rev in productReviews" :key="rev.id">
+                            <div @click="openReviewDetailModal(rev)" class="bg-slate-50 p-3.5 rounded-2xl border space-y-2 shadow-xs cursor-pointer hover:border-teal-500 transition">
+                                <div class="flex items-center justify-between text-xs font-bold">
+                                    <span class="text-slate-800" x-text="rev.doctor_name || 'Practitioner'"></span>
+                                    <span class="text-amber-500" x-text="'⭐'.repeat(rev.rating || 5)"></span>
+                                </div>
+                                
+                                <p class="text-slate-700 text-[11px] leading-relaxed line-clamp-2" x-text="rev.comment"></p>
+                
+                                <template x-if="rev.review_images">
+                                    <div class="flex gap-1.5 overflow-x-auto py-1">
+                                        <template x-for="imgUrl in (typeof rev.review_images === 'string' ? JSON.parse(rev.review_images || '[]') : (rev.review_images || []))">
+                                            <div class="w-16 h-16 bg-white rounded-xl border p-0.5 overflow-hidden shrink-0 shadow-xs">
+                                                <img :src="imgUrl" class="w-full h-full object-cover rounded-lg">
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                
+                                <div class="pt-1 border-t text-[9px] text-slate-400 font-mono flex justify-between items-center">
+                                    <span x-text="formatDateDisplay(rev.created_at)"></span>
+                                    <span class="bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded font-bold uppercase text-[8px]">Verified Buyer</span>
+                                </div>
+                            </div>
                         </template>
-                        <template x-if="Number(selectedProduct?.stock ?? 0) <= 0">
-                            <button disabled class="w-full bg-slate-200 text-slate-400 font-black py-3 rounded-2xl text-xs uppercase cursor-not-allowed">
-                                Unavailable
-                            </button>
+                    </div>
+                
+                    <div x-show="productReviews.length === 0" class="text-center py-6 text-slate-400 font-bold text-xs">
+                        No reviews yet for this product. Be the first practitioner to rate it after delivery!
+                    </div>
+                </div>
+
+                <!-- SIMILAR PRODUCTS SECTION -->
+                <div class="bg-slate-50 border-t p-6 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-black uppercase text-slate-900 tracking-wider">🌟 May You Like This Product</h3>
+                        <span class="text-[11px] text-teal-800 font-bold">Similar Clinical Equipment & Materials</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <template x-for="sim in products.filter(p => p.id !== selectedProduct?.id && (selectedProduct?.directory_id ? p.directory_id === selectedProduct.directory_id : true)).slice(0, 4)" :key="sim.id">
+                            <div @click="handleProductCardClick(sim)" class="bg-white border rounded-2xl p-3 flex flex-col justify-between hover:shadow-xl transition cursor-pointer relative group">
+                                <div class="h-32 w-full bg-slate-50 rounded-xl flex items-center justify-center p-2 mb-2 overflow-hidden">
+                                    <img :src="getProductImageUrl(sim)" class="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition">
+                                </div>
+                                <div class="space-y-1 flex-1 flex flex-col justify-between">
+                                    <div>
+                                        <h4 class="font-black text-slate-900 text-xs line-clamp-2" x-text="sim.name"></h4>
+                                        <p class="text-[10px] text-teal-800 font-bold mt-0.5" x-text="sim.company || 'Brand'"></p>
+                                    </div>
+                                    <div class="pt-2 border-t flex items-baseline justify-between">
+                                        <span class="font-black text-slate-900 text-sm" x-text="'₹' + formatCurrency(sim.price)"></span>
+                                        <span class="text-[10px] text-teal-700 font-bold group-hover:underline">View ➔</span>
+                                    </div>
+                                </div>
+                            </div>
                         </template>
                     </div>
                 </div>
@@ -1008,7 +1163,7 @@
         </div>
     </div>
 
-    <!-- AUTHENTICATION GATE WITH BROWSER AUTO-FILL & REMEMBER ME -->
+    <!-- AUTHENTICATION GATE -->
     <div x-show="authModalOpen" class="bg-slate-900/80 backdrop-blur-sm fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;" x-cloak>
         <div class="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 space-y-4 relative border border-slate-100">
             <button @click="authModalOpen = false" class="absolute top-4 right-4 text-slate-400 font-bold text-sm cursor-pointer hover:text-slate-700">✕</button>
@@ -1040,7 +1195,7 @@
                     </div>
                     <input type="tel" x-model="authForm.phone" required maxlength="10" pattern="[6-9][0-9]{9}" autocomplete="tel" placeholder="9876543210" class="w-full p-2.5 border border-emerald-300 rounded-xl bg-white text-xs font-mono font-bold outline-none focus:border-emerald-600">
                     <p class="text-[9.5px] text-emerald-800 leading-tight font-medium">
-                        ⚠️ <b>Attention:</b> Enter your active <b>WhatsApp mobile number</b> only. All password reset OTPs and order status notifications will be sent to this WhatsApp number.
+                        ⚠ <b>Attention:</b> Enter your active <b>WhatsApp mobile number</b> only. All password reset OTPs and order status notifications will be sent to this WhatsApp number.
                     </p>
                 </div>
 
@@ -1054,7 +1209,7 @@
                 </button>
             </form>
 
-            <!-- 2. LOGIN FORM WITH BROWSER AUTO-FILL & REMEMBER ME -->
+            <!-- 2. LOGIN FORM -->
             <form x-show="authView === 'login'" @submit.prevent="executeAuth()" class="space-y-3">
                 <div>
                     <label class="block text-[10px] uppercase font-bold text-slate-500 mb-0.5">Email or 10-Digit WhatsApp Mobile *</label>
@@ -1084,12 +1239,11 @@
                         <button type="button" 
                                 @click="showPassword = !showPassword" 
                                 class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-sm cursor-pointer select-none">
-                            <span x-text="showPassword ? '👁️' : '👁️‍🗨️'"></span>
+                            <span x-text="showPassword ? '👁️' : '👁️‍‍🗨️'"></span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Remember Me Checkbox -->
                 <div class="flex items-center gap-2 pt-1">
                     <input type="checkbox" id="rememberMe" x-model="authForm.rememberMe" class="w-4 h-4 text-teal-700 rounded border-slate-300 focus:ring-teal-500 cursor-pointer" checked>
                     <label for="rememberMe" class="text-[11px] font-bold text-slate-700 cursor-pointer select-none">Remember my login</label>
@@ -1100,7 +1254,7 @@
                 </button>
             </form>
 
-            <!-- 3. DUAL-CHANNEL OTP RECOVERY -->
+            <!-- 3. OTP RECOVERY -->
             <div x-show="authView === 'forgot'" class="space-y-3">
                 <div x-show="!otpSent" class="space-y-3">
                     <p class="text-slate-600 text-[11px] leading-relaxed">
@@ -1156,7 +1310,7 @@
         © 2026 SB BAZAR • S.B. ENTERPRISES DISTRIBUTION PIPELINE
     </footer>
 
-    <!-- JAVASCRIPT PIPELINE CONNECTED TO POSTGRESQL API (STRICT DATABASE SYNC FOR CART & WISHLIST) -->
+    <!-- JAVASCRIPT PIPELINE CONNECTED TO POSTGRESQL API -->
     <script>
         const API_BASE = 'https://dentist-bazar-backend.onrender.com/api';
 
@@ -1166,7 +1320,7 @@
                 showPassword: false,
                 cartModalOpen: false, modalOpen: false, selectedProduct: null, activeImageIndex: 0,
                 searchQuery: '', activeTabId: 'all', currentDisplayLimit: 12,
-                products: [], directories: [], cartItems: [], wishlistItems: [], banners: [],
+                products: [], directories: [], cartItems: [], wishlistItems: [], banners: [], productReviews: [],
                 doctorName: '', doctorAvatar: '', userCoins: 0, cartCount: 0,
                 authForm: { name: '', reg_number: '', identity: '', registerEmail: '', phone: '', password: '', rememberMe: true },
                 profileForm: { name: '', reg_number: '', phone: '', email: '' },
@@ -1183,6 +1337,8 @@
                 reviewModalOpen: false,
                 selectedReviewOrder: null,
                 productRatings: {},
+                reviewDetailModalOpen: false,
+                selectedReview: null,
 
                 customerCancelModalOpen: false,
                 selectedCancelOrderId: null,
@@ -1255,7 +1411,6 @@
                     await this.fetchBanners();
                     await this.fetchAnnouncement();
 
-                    // STRICT DATABASE SYNC ON LOAD (NO LOCAL STORAGE FALLBACK FOR CART & WISHLIST)
                     if (this.isLoggedIn && this.currentUser) {
                         await this.fetchUserCartFromDb();
                         await this.fetchUserWishlistFromDb();
@@ -1278,7 +1433,6 @@
                     if (this.isLoggedIn) { await this.fetchDoctorOrderHistory(); }
                 },
 
-                // DATABASE CART PERSISTENCE
                 async fetchUserCartFromDb() {
                     if (!this.currentUser) return;
                     try {
@@ -1315,7 +1469,6 @@
                     } catch(e) {}
                 },
 
-                // DATABASE WISHLIST PERSISTENCE
                 async fetchUserWishlistFromDb() {
                     if (!this.currentUser) return;
                     try {
@@ -1447,22 +1600,69 @@
                     }
                 },
 
-                openReviewModal(ord) {
+                async openReviewModal(ord) {
                     this.selectedReviewOrder = ord;
                     this.productRatings = {};
                     const items = this.parseOrderItems(ord.items);
+                
                     items.forEach(it => {
-                        this.productRatings[it.id] = { rating: 5, comment: '' };
+                        this.productRatings[it.id] = { rating: 5, comment: '', review_images: [] };
                     });
+                
                     this.reviewModalOpen = true;
+                
+                    try {
+                        for (let it of items) {
+                            const res = await fetch(`${API_BASE}/products/${it.id}/reviews`);
+                            if (res.ok) {
+                                const reviews = await res.json();
+                                const myRev = reviews.find(r => r.doctor_name === (this.currentUser?.name || 'Practitioner'));
+                                if (myRev) {
+                                    let parsedImages = [];
+                                    try { 
+                                        parsedImages = typeof myRev.review_images === 'string' ? JSON.parse(myRev.review_images || '[]') : (myRev.review_images || []); 
+                                    } catch(e) { 
+                                        parsedImages = []; 
+                                    }
+                                    
+                                    this.productRatings[it.id] = {
+                                        rating: myRev.rating || 5,
+                                        comment: myRev.comment || '',
+                                        review_images: parsedImages
+                                    };
+                                }
+                            }
+                        }
+                    } catch(e) {}
                 },
 
-                setProductRating(productId, ratingVal) {
-                    if (this.productRatings[productId]) {
-                        this.productRatings[productId].rating = ratingVal;
+                openReviewDetailModal(rev) {
+                    this.selectedReview = rev;
+                    this.reviewDetailModalOpen = true;
+                },
+
+                handleReviewImageUpload(productId, event) {
+                    const files = event.target.files;
+                    if (files && files.length > 0) {
+                        if (!this.productRatings[productId].review_images) {
+                            this.productRatings[productId].review_images = [];
+                        }
+                        for (let file of files) {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                this.productRatings[productId].review_images.push(e.target.result);
+                            };
+                            reader.readAsDataURL(file);
+                        }
                     }
                 },
-
+    
+                removeReviewImage(productId, imgIdx) {
+                    if (this.productRatings[productId] && this.productRatings[productId].review_images) {
+                        this.productRatings[productId].review_images.splice(imgIdx, 1);
+                    }
+                },
+                
                 async submitProductReviews() {
                     if (!this.selectedReviewOrder) return;
                     try {
@@ -1473,14 +1673,16 @@
                                 body: JSON.stringify({
                                     doctor_name: this.currentUser?.name || 'Practitioner',
                                     rating: data.rating,
-                                    comment: data.comment || 'Great quality product.'
+                                    comment: data.comment || '',
+                                    review_images: data.review_images || []
                                 })
                             });
                         }
                         this.reviewModalOpen = false;
-                        this.showBoomToast("Reviews Submitted", "Thank you! Your feedback has been recorded.", "⭐");
+                        this.showBoomToast("Reviews Saved", "Your ratings, comments & photos have been updated successfully.", "⭐");
+                        await this.fetchDoctorOrderHistory();
                     } catch (err) {
-                        alert("Error submitting reviews.");
+                        alert("Error saving reviews.");
                     }
                 },
 
@@ -1593,12 +1795,22 @@
                     return ['https://placehold.co/300x200?text=Equipment'];
                 },
 
-                handleProductCardClick(p) {
+                async handleProductCardClick(p) {
                     this.selectedProduct = p;
                     this.activeImageIndex = 0;
                     this.checkPincode = '';
                     this.deliveryMessage = '';
+                    this.productReviews = [];
                     this.modalOpen = true;
+                
+                    try {
+                        const res = await fetch(`${API_BASE}/products/${p.id}/reviews`);
+                        if (res.ok) {
+                            this.productReviews = await res.json();
+                        }
+                    } catch(e) {
+                        this.productReviews = [];
+                    }
                 },
 
                 hasProductWarranty(prod) {
