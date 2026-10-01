@@ -326,54 +326,10 @@
         </div>
     </div>
 
-    <!-- ULTRA-INTERACTIVE, BEAUTIFUL & STYLISH AI CHAT DRAWER -->
-    <div x-show="aiDrawerOpen" class="fixed bottom-24 left-6 z-[9995] w-80 sm:w-96 bg-slate-900 rounded-3xl shadow-2xl border-2 border-teal-500/80 overflow-hidden flex flex-col h-[520px]" x-cloak x-transition>
-        <!-- AI HEADER -->
-        <header class="bg-gradient-to-r from-teal-900 via-slate-900 to-slate-900 text-white p-4 flex items-center justify-between border-b border-teal-700/50 shadow-md">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-2xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-lg shadow-inner animate-pulse">🤖</div>
-                <div>
-                    <h4 class="font-black text-xs uppercase tracking-wider text-teal-300 flex items-center gap-1.5">
-                        <span>Smart AI Copilot</span>
-                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                    </h4>
-                    <p class="text-[9px] text-slate-400 font-mono">Connected to Live Database Inventory</p>
-                </div>
-            </div>
-            <button @click="aiDrawerOpen = false" class="text-slate-400 hover:text-white font-black text-sm cursor-pointer bg-slate-800/80 w-7 h-7 rounded-full flex items-center justify-center transition hover:bg-slate-700">✕</button>
-        </header>
-
-        <!-- CHAT MESSAGES STREAM CONTAINER WITH AUTO-SCROLL -->
-        <div x-ref="chatContainer" class="flex-1 p-4 overflow-y-auto space-y-3.5 bg-slate-950 text-xs font-medium">
-            <template x-for="(msg, mIdx) in aiMessages" :key="mIdx">
-                <div class="flex flex-col space-y-1" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
-                    <div class="max-w-[88%] rounded-2xl p-3.5 shadow-lg text-xs leading-relaxed" :class="msg.role === 'user' ? 'bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-br-none shadow-teal-900/30' : 'bg-slate-900/90 text-teal-100 border border-teal-500/20 rounded-bl-none shadow-black'">
-                        <p x-html="msg.text" class="space-y-1"></p>
-                    </div>
-                    <span class="text-[9px] text-slate-500 font-mono px-1.5" x-text="msg.time"></span>
-                </div>
-            </template>
-        </div>
-
-        <!-- INTERACTIVE QUICK CHIP PROMPTS -->
-        <div class="px-3 py-2 bg-slate-900/80 border-t border-slate-800 flex gap-1.5 overflow-x-auto text-[10px]">
-            <button @click="aiUserInput = 'Show me best dental chairs'; sendAiMessage();" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700/60 px-2.5 py-1 rounded-xl whitespace-nowrap cursor-pointer transition">💺 Dental Chairs</button>
-            <button @click="aiUserInput = 'Check Alginate stock'; sendAiMessage();" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700/60 px-2.5 py-1 rounded-xl whitespace-nowrap cursor-pointer transition">📦 Check Stock</button>
-            <button @click="aiUserInput = 'Contact WhatsApp support'; sendAiMessage();" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700/60 px-2.5 py-1 rounded-xl whitespace-nowrap cursor-pointer transition">💬 WhatsApp Help</button>
-        </div>
-
-        <!-- INPUT FORM WITH SUBMIT & ENTER KEY HANDLER -->
-        <form @submit.prevent="sendAiMessage()" class="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
-            <input type="text" x-model="aiUserInput" @keyup.enter="sendAiMessage()" placeholder="Ask about products, stock, or WhatsApp..." class="flex-1 bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-teal-400 transition font-medium">
-            <button type="button" @click="sendAiMessage()" class="bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white font-black px-4 py-2.5 rounded-xl text-xs cursor-pointer shadow-lg transition active:scale-95">Send</button>
-        </form>
-    </div>
-
     <!-- STICKY TOP CONTAINER -->
     <div class="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm">
         <header class="bg-teal-800 text-white shadow-md w-full">
             <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-                <!-- SB BAZAR BRANDING & TRANSPARENT LOGO CONTAINER -->
                 <div class="flex items-center gap-3 cursor-pointer shrink-0 select-none" @click="currentMainView = 'store'; activeTabId = 'all';">
                     <div class="w-10 h-10 flex items-center justify-center overflow-hidden bg-transparent p-0">
                         <img src="logo.png" alt="Logo" class="w-full h-full object-contain drop-shadow" onerror="this.src='https://placehold.co/40x40?text=SB'">
@@ -393,7 +349,6 @@
                         <span>🪙</span> <span class="font-black text-[11px]" x-text="userCoins">0</span>
                     </div>
 
-                    <!-- COMPACT WISHLIST -->
                     <div class="relative" x-data="{ wishOpen: false }">
                         <button @click="wishOpen = !wishOpen" class="flex items-center gap-1.5 hover:text-slate-200 transition font-bold py-1.5 px-3 rounded-xl hover:bg-teal-900/40 relative cursor-pointer">
                             <span>❤️</span> <span class="hidden sm:inline">Wishlist</span>
@@ -424,7 +379,6 @@
                         </div>
                     </div>
 
-                    <!-- USER ACCOUNT DROPDOWN -->
                     <div class="relative" x-data="{ userMenuOpen: false }">
                         <template x-if="isLoggedIn">
                             <button @click="userMenuOpen = !userMenuOpen" class="bg-white text-teal-800 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm flex items-center gap-2 cursor-pointer">
@@ -457,17 +411,6 @@
                         </div>
                     </div>
 
-                    <!-- MORE DROPDOWN WITH CUSTOMER CARE -->
-                    <div class="relative" x-data="{ moreOpen: false }">
-                        <button @click="moreOpen = !moreOpen" class="flex items-center gap-1 hover:text-slate-200 transition font-bold py-1 select-none cursor-pointer">
-                            <span>More <span x-text="moreOpen ? '▲' : '▼'"></span></span>
-                        </button>
-                        <div x-show="moreOpen" @click.outside="moreOpen = false" x-cloak class="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-2xl border text-slate-800 z-[9999] py-2 font-medium transition" x-transition>
-                            <button @click="moreOpen = false; supportModalOpen = true;" class="w-full text-left px-4 py-2.5 hover:bg-teal-50 flex items-center gap-2 text-xs text-teal-800 font-bold cursor-pointer">📞 Customer Care Node</button>
-                        </div>
-                    </div>
-
-                    <!-- CART -->
                     <button @click="cartModalOpen = true" class="flex items-center gap-1.5 hover:text-slate-100 font-bold relative py-1.5 px-3 rounded-xl cursor-pointer">
                         <span>🛒</span> <span class="hidden sm:inline">Cart</span> 
                         <span class="bg-amber-500 text-slate-950 text-[9px] px-1.5 py-0.5 rounded-full font-black absolute -top-1.5 right-0" x-text="cartCount">0</span>
@@ -476,7 +419,6 @@
             </div>
         </header>
 
-        <!-- RUNNING ANNOUNCEMENT STRIP -->
         <div class="bg-slate-900 text-amber-400 text-xs font-bold py-2 overflow-hidden relative whitespace-nowrap border-b border-amber-500/20 shadow-inner cursor-pointer" 
              x-show="announcementText"
              @mouseenter="stopAnnouncementMarquee()" 
@@ -486,7 +428,6 @@
                  x-text="announcementText"></div>
         </div>
 
-        <!-- CATEGORIES STRIP -->
         <div class="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 shadow-xl border-b border-teal-500/30 py-2 px-3">
             <div class="max-w-6xl mx-auto flex items-center justify-center flex-wrap gap-1.5 sm:gap-2 text-center">
                 <div @click="currentMainView = 'store'; activeTabId = 'all';" 
@@ -800,6 +741,7 @@
                                     </button>
                                 </template>
 
+                                <!-- TAX INVOICE & WARRANTY CARDS (UNLOCKED UPON DELIVERY & WITHIN 28 HOURS) -->
                                 <template x-if="isOrderDelivered(ord.status)">
                                     <div>
                                         <template x-if="isWithin28HourWindow(ord)">
@@ -810,7 +752,7 @@
                                                 <button @click="openBankRefundModal(ord)" class="bg-red-700 hover:bg-red-800 text-white font-bold px-3 py-2 rounded-xl text-[10px] uppercase cursor-pointer shadow flex items-center gap-1">
                                                     <span>💰</span> Request Refund
                                                 </button>
-                                                <button @click="requestProductReplacement(ord)" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3.5 py-2 rounded-xl text-[10px] uppercase cursor-pointer shadow flex items-center gap-1">
+                                                <button @click="requestProductReplacement(ord)" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3 py-2 rounded-xl text-[10px] uppercase cursor-pointer shadow flex items-center gap-1">
                                                     <span>🔄</span> Request Replacement
                                                 </button>
 
@@ -1010,7 +952,7 @@
                             <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Category Standard</span><span class="font-black text-slate-900">ISO / CE Certified Medical Grade</span></div>
                             <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Manufacture Date</span><span class="font-mono font-bold text-slate-800" x-text="formatDateDisplay(selectedProduct?.mfg_date)"></span></div>
                             <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Expiration / Validity</span><span class="font-mono font-bold text-amber-700" x-text="selectedProduct?.exp_date ? formatDateDisplay(selectedProduct.exp_date) : 'Non-Consumable / Lifetime'"></span></div>
-                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Warranty Protection</span><span class="font-black text-slate-900" x-text="hasProductWarranty(selectedProduct) ? `${selectedProduct.warranty_months || 6} Months` : 'Standard Standard'"></span></div>
+                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Warranty Protection</span><span class="font-black text-slate-900" x-text="hasProductWarranty(selectedProduct) ? `${selectedProduct.warranty_months || 6} Months` : 'Standard'"></span></div>
                             <div class="flex justify-between border-b pb-2"><span class="text-slate-500 font-bold">Fulfillment Hub</span><span class="font-black text-teal-900">Bank More, Dhanbad (JH)</span></div>
                         </div>
                     </div>
@@ -1163,7 +1105,7 @@
         </div>
     </div>
 
-    <!-- AUTHENTICATION GATE -->
+    <!-- AUTHENTICATION GATE WITH BROWSER AUTO-FILL & REMEMBER ME -->
     <div x-show="authModalOpen" class="bg-slate-900/80 backdrop-blur-sm fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;" x-cloak>
         <div class="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 space-y-4 relative border border-slate-100">
             <button @click="authModalOpen = false" class="absolute top-4 right-4 text-slate-400 font-bold text-sm cursor-pointer hover:text-slate-700">✕</button>
@@ -1195,7 +1137,7 @@
                     </div>
                     <input type="tel" x-model="authForm.phone" required maxlength="10" pattern="[6-9][0-9]{9}" autocomplete="tel" placeholder="9876543210" class="w-full p-2.5 border border-emerald-300 rounded-xl bg-white text-xs font-mono font-bold outline-none focus:border-emerald-600">
                     <p class="text-[9.5px] text-emerald-800 leading-tight font-medium">
-                        ⚠ <b>Attention:</b> Enter your active <b>WhatsApp mobile number</b> only. All password reset OTPs and order status notifications will be sent to this WhatsApp number.
+                        ⚠️ <b>Attention:</b> Enter your active <b>WhatsApp mobile number</b> only. All password reset OTPs and order status notifications will be sent to this WhatsApp number.
                     </p>
                 </div>
 
@@ -1209,7 +1151,7 @@
                 </button>
             </form>
 
-            <!-- 2. LOGIN FORM -->
+            <!-- 2. LOGIN FORM WITH BROWSER AUTO-FILL & REMEMBER ME -->
             <form x-show="authView === 'login'" @submit.prevent="executeAuth()" class="space-y-3">
                 <div>
                     <label class="block text-[10px] uppercase font-bold text-slate-500 mb-0.5">Email or 10-Digit WhatsApp Mobile *</label>
@@ -1239,11 +1181,12 @@
                         <button type="button" 
                                 @click="showPassword = !showPassword" 
                                 class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-sm cursor-pointer select-none">
-                            <span x-text="showPassword ? '👁️' : '👁️‍‍🗨️'"></span>
+                            <span x-text="showPassword ? '👁️' : '👁️‍🗨️'"></span>
                         </button>
                     </div>
                 </div>
 
+                <!-- Remember Me Checkbox -->
                 <div class="flex items-center gap-2 pt-1">
                     <input type="checkbox" id="rememberMe" x-model="authForm.rememberMe" class="w-4 h-4 text-teal-700 rounded border-slate-300 focus:ring-teal-500 cursor-pointer" checked>
                     <label for="rememberMe" class="text-[11px] font-bold text-slate-700 cursor-pointer select-none">Remember my login</label>
@@ -1254,7 +1197,7 @@
                 </button>
             </form>
 
-            <!-- 3. OTP RECOVERY -->
+            <!-- 3. DUAL-CHANNEL OTP RECOVERY -->
             <div x-show="authView === 'forgot'" class="space-y-3">
                 <div x-show="!otpSent" class="space-y-3">
                     <p class="text-slate-600 text-[11px] leading-relaxed">
@@ -1312,7 +1255,7 @@
 
     <!-- JAVASCRIPT PIPELINE CONNECTED TO POSTGRESQL API -->
     <script>
-        const API_BASE = 'https://dentist-bazar-backend.onrender.com/api';
+        const API_BASE = 'http://localhost:5000/api';
 
         function storeApp() {
             return {
@@ -1453,9 +1396,11 @@
                             }));
                         }
                     } catch(e) { this.cartItems = []; }
+                    this.saveCartToLocalStorage();
                 },
 
                 async syncCartToDb() {
+                    this.saveCartToLocalStorage();
                     if (!this.currentUser) return;
                     try {
                         await fetch(`${API_BASE}/cart`, {
@@ -1466,6 +1411,16 @@
                                 items: this.cartItems.map(i => ({ product_id: i.id, qty: i.qty }))
                             })
                         });
+                    } catch(e) {}
+                },
+
+                saveCartToLocalStorage() {
+                    try {
+                        const cartJson = JSON.stringify(this.cartItems);
+                        const totalVal = JSON.stringify(this.getCartRunningSumTotal());
+                        localStorage.setItem('sbe_cart', cartJson);
+                        localStorage.setItem('sb_dent_cart', cartJson);
+                        localStorage.setItem('sbe_cart_total', totalVal);
                     } catch(e) {}
                 },
 
@@ -1896,7 +1851,11 @@
                 },
 
                 calculateCartCountSummary() { this.cartCount = this.cartItems.reduce((a, c) => a + c.qty, 0); },
-                getCartRunningSumTotal() { return this.cartItems.reduce((s, i) => s + (i.price * i.qty), 0); },
+                getCartRunningSumTotal() { 
+                    const total = this.cartItems.reduce((s, i) => s + (i.price * i.qty), 0);
+                    this.saveCartToLocalStorage();
+                    return total;
+                },
 
                 findProductLocal(id) {
                     return this.products.find(p => p.id == id);
@@ -1904,6 +1863,7 @@
 
                 checkoutRedirectCheck() {
                     if (this.cartItems.length === 0) return;
+                    this.saveCartToLocalStorage();
                     if (!this.isLoggedIn) {
                         this.openAuthModal('login');
                     } else {
