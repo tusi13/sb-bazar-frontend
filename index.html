@@ -305,6 +305,45 @@
         </div>
     </div>
 
+    <!-- AI CHAT DRAWER -->
+    <div x-show="aiDrawerOpen" class="fixed bottom-24 left-6 z-[10055] w-80 sm:w-96 bg-slate-900 rounded-3xl shadow-2xl border-2 border-teal-500/80 overflow-hidden flex flex-col h-[520px]" x-cloak x-transition>
+        <header class="bg-gradient-to-r from-teal-900 via-slate-900 to-slate-900 text-white p-4 flex items-center justify-between border-b border-teal-700/50 shadow-md">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-2xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-lg shadow-inner animate-pulse">🤖</div>
+                <div>
+                    <h4 class="font-black text-xs uppercase tracking-wider text-teal-300 flex items-center gap-1.5">
+                        <span>Smart AI Copilot</span>
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    </h4>
+                    <p class="text-[9px] text-slate-400 font-mono">Connected to Live Database Inventory</p>
+                </div>
+            </div>
+            <button @click="aiDrawerOpen = false" class="text-slate-400 hover:text-white font-black text-sm cursor-pointer bg-slate-800/80 w-7 h-7 rounded-full flex items-center justify-center transition hover:bg-slate-700">✕</button>
+        </header>
+
+        <div x-ref="chatContainer" class="flex-1 p-4 overflow-y-auto space-y-3.5 bg-slate-950 text-xs font-medium">
+            <template x-for="(msg, mIdx) in aiMessages" :key="mIdx">
+                <div class="flex flex-col space-y-1" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
+                    <div class="max-w-[88%] rounded-2xl p-3.5 shadow-lg text-xs leading-relaxed" :class="msg.role === 'user' ? 'bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-br-none shadow-teal-900/30' : 'bg-slate-900/90 text-teal-100 border border-teal-500/20 rounded-bl-none shadow-black'">
+                        <p x-html="msg.text" class="space-y-1"></p>
+                    </div>
+                    <span class="text-[9px] text-slate-500 font-mono px-1.5" x-text="msg.time"></span>
+                </div>
+            </template>
+        </div>
+
+        <div class="px-3 py-2 bg-slate-900/80 border-t border-slate-800 flex gap-1.5 overflow-x-auto text-[10px]">
+            <button @click="aiUserInput = 'Show me best dental chairs'; sendAiMessage();" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700/60 px-2.5 py-1 rounded-xl whitespace-nowrap cursor-pointer transition">💺 Dental Chairs</button>
+            <button @click="aiUserInput = 'Check Alginate stock'; sendAiMessage();" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700/60 px-2.5 py-1 rounded-xl whitespace-nowrap cursor-pointer transition">📦 Check Stock</button>
+            <button @click="aiUserInput = 'Contact WhatsApp support'; sendAiMessage();" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700/60 px-2.5 py-1 rounded-xl whitespace-nowrap cursor-pointer transition">💬 WhatsApp Help</button>
+        </div>
+
+        <form @submit.prevent="sendAiMessage()" class="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
+            <input type="text" x-model="aiUserInput" @keyup.enter="sendAiMessage()" placeholder="Ask about products, stock, or WhatsApp..." class="flex-1 bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-teal-400 transition font-medium">
+            <button type="button" @click="sendAiMessage()" class="bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white font-black px-4 py-2.5 rounded-xl text-xs cursor-pointer shadow-lg transition active:scale-95">Send</button>
+        </form>
+    </div>
+
     <!-- FLOATING AI ROBOT BUTTON (BOTTOM LEFT) -->
     <div class="fixed bottom-6 left-6 z-[10050] select-none pointer-events-auto">
         <button @click="aiDrawerOpen = !aiDrawerOpen" class="bg-gradient-to-br from-teal-600 to-slate-900 hover:from-teal-500 hover:to-slate-950 text-white rounded-full flex items-center justify-center shadow-2xl transition duration-300 hover:scale-110 p-4 border-2 border-teal-300 cursor-pointer relative robot-avatar group">
