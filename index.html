@@ -1269,6 +1269,11 @@
         function storeApp() {
             return {
                 isLoggedIn: false, authModalOpen: false, authView: 'login',
+				// 🌟 ADD THIS MISSING FUNCTION HERE:
+                openAuthModal(view = 'login') {
+                    this.authView = view;
+                    this.authModalOpen = true;
+                },
                 showPassword: false,
                 cartModalOpen: false, modalOpen: false, selectedProduct: null, activeImageIndex: 0,
                 searchQuery: '', activeTabId: 'all', currentDisplayLimit: 12,
