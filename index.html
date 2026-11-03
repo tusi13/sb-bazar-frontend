@@ -2071,7 +2071,7 @@
                         if (matchedProducts.length > 0) {
                             botReply = `Here are the matching products from our live database:<br>`;
                             matchedProducts.slice(0, 3).forEach(p => {
-                                const stockStatus = Number(p.stock ?? 0) > 0 ? `✅ In Stock (${p.stock} available)` : `❌ Out of Stock (Owner will be notified)`;
+                                const stockStatus = Number(p.stock ?? 0) > 0 ? `✅ In Stock` : `❌ Out of Stock`;
                                 botReply += `• <b>${p.name}</b> (${p.company || 'Brand'}) — ₹${this.formatCurrency(p.price)} | ${stockStatus}<br>`;
                             });
                             botReply += `<br>Type <i>"add [product name] to cart"</i> to purchase!`;
