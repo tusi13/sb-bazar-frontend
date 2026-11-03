@@ -14,6 +14,8 @@
     <!-- jsPDF & AutoTable Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <!-- HTML5 QR Code Scanner Library for Mobile Camera Scanning -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         [x-cloak] { display: none !important; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -52,7 +54,7 @@
                 </button>
             </form>
 
-            <!-- 2. REGISTRATION FORM (WITH WHATSAPP INSTRUCTION) -->
+            <!-- 2. REGISTRATION FORM -->
             <form x-show="authMode === 'register'" @submit.prevent="registerNewStaff()" class="space-y-3" style="display: none;">
                 <div class="space-y-1">
                     <label class="block text-[10px] uppercase font-bold text-slate-500">Full Name *</label>
@@ -63,16 +65,12 @@
                     <input type="email" x-model="regForm.email" required placeholder="staff@dentistbazar.com" class="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none focus:border-teal-600">
                 </div>
                 
-                <!-- WHATSAPP NUMBER HIGHLIGHT -->
                 <div class="space-y-1 bg-emerald-50/70 border border-emerald-300 p-2.5 rounded-xl">
                     <div class="flex justify-between items-center">
                         <label class="block text-[10px] uppercase font-black text-emerald-900">10-Digit WhatsApp Mobile *</label>
                         <span class="text-[9px] font-black text-emerald-700">💬 Mandatory</span>
                     </div>
                     <input type="tel" x-model="regForm.phone" required maxlength="10" pattern="[6-9][0-9]{9}" placeholder="9876543210" class="w-full p-2.5 border border-emerald-300 rounded-xl bg-white text-xs font-mono font-bold outline-none focus:border-emerald-600">
-                    <p class="text-[9px] text-emerald-800 leading-tight">
-                        ⚠️ Enter your active <b>WhatsApp mobile number</b>. All security OTPs for password recovery will be sent here.
-                    </p>
                 </div>
 
                 <div class="space-y-1">
@@ -99,7 +97,6 @@
                 <form x-show="otpSent" @submit.prevent="verifyAdminOtpAndReset()" class="space-y-2.5">
                     <div class="bg-teal-50 border border-teal-200 p-2.5 rounded-xl space-y-1.5 text-[11px]">
                         <p class="font-bold text-teal-900">✅ Code sent to your Email!</p>
-                        <p class="text-slate-600 text-[10px]">To confirm or view via WhatsApp immediately:</p>
                         <button type="button" @click="openAdminWhatsAppLink()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-1.5 rounded-lg text-[10px] uppercase flex items-center justify-center gap-1 shadow-xs">
                             <span>💬</span> Open WhatsApp Message
                         </button>
@@ -133,6 +130,56 @@
                 <template x-if="authMode === 'register' || authMode === 'forgot'">
                     <button type="button" @click="authMode = 'login'" class="text-teal-700 hover:underline text-[11px] font-bold cursor-pointer">Already have an account? Login</button>
                 </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOBILE CAMERA BARCODE SCANNER MODAL -->
+    <div x-show="showCameraScannerModal" class="fixed inset-0 z-[10050] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4" style="display: none;" x-cloak x-transition>
+        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border p-6 space-y-4 relative">
+            <header class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-sm font-black text-teal-900 uppercase tracking-wide">📷 Mobile Camera Barcode Scanner</h3>
+                <button @click="stopCameraScanner()" class="text-slate-400 hover:text-slate-800 font-bold text-sm cursor-pointer">✕ Close</button>
+            </header>
+            <div class="space-y-3 text-center">
+                <p class="text-xs text-slate-600">Point your device camera at the product barcode or QR code.</p>
+                <div id="interactive-camera-scanner" class="w-full rounded-2xl overflow-hidden bg-slate-900 min-h-[250px]"></div>
+                <p class="text-[11px] text-teal-700 font-mono font-bold" x-text="cameraScanStatusText"></p>
+            </div>
+            <button @click="stopCameraScanner()" class="w-full bg-slate-200 text-slate-800 font-bold py-2.5 rounded-xl uppercase text-xs cursor-pointer">Cancel / Close</button>
+        </div>
+    </div>
+
+    <!-- SERIAL NUMBER INPUT MODAL (BEFORE DISPATCH FOR WARRANTY ITEMS) -->
+    <div x-show="showSerialModal" class="fixed inset-0 z-[10040] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4" style="display: none;" x-cloak x-transition>
+        <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border p-6 space-y-4 relative max-h-[90vh] overflow-y-auto" @click.outside="showSerialModal = false">
+            <header class="flex justify-between items-start border-b pb-3">
+                <div>
+                    <h3 class="text-sm font-black text-teal-900 uppercase tracking-wide">🛡️ Enter Product Serial Numbers (Warranty Items)</h3>
+                    <p class="text-[11px] font-bold text-slate-500 font-mono mt-0.5" x-text="`Order Ref: #SBE-ORD-${activeOrderForSerial?.id}`"></p>
+                </div>
+                <button @click="showSerialModal = false" class="text-slate-400 hover:text-slate-800 font-bold text-sm cursor-pointer">✕ Close</button>
+            </header>
+
+            <div class="space-y-3">
+                <p class="text-xs text-slate-600">Please enter unique manufacturing serial numbers for warranty-eligible items before dispatching this order:</p>
+                
+                <template x-for="(group, idx) in serialModalGroups" :key="idx">
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border space-y-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-bold text-slate-900" x-text="group.name"></span>
+                            <span class="bg-amber-100 text-amber-900 font-black px-2 py-0.5 rounded text-[10px]" x-text="`Required Qty: ${group.qty}`"></span>
+                        </div>
+                        <input type="text" x-model="group.serial_no" placeholder="Enter Serial Number (e.g. SBE-SN-98421)" class="w-full p-2.5 border rounded-xl bg-white text-xs font-mono outline-none focus:border-teal-600 font-bold" required>
+                    </div>
+                </template>
+            </div>
+
+            <div class="pt-2 flex gap-2">
+                <button @click="showSerialModal = false" class="flex-1 bg-slate-200 text-slate-700 font-bold py-3 rounded-xl uppercase text-xs cursor-pointer">Cancel</button>
+                <button @click="submitSerialsAndDispatch()" class="flex-1 bg-teal-800 hover:bg-teal-900 text-white font-black py-3 rounded-xl uppercase text-xs shadow cursor-pointer flex items-center justify-center gap-1.5">
+                    <span>🚀</span> Confirm & Dispatch Order
+                </button>
             </div>
         </div>
     </div>
@@ -280,73 +327,67 @@
     </div>
 
     <div class="min-h-screen flex flex-col" x-show="isAdminLoggedIn" x-cloak>
-        <!-- Top Navigation Header -->
-        <header class="bg-slate-800 text-white py-4 px-6 shadow-md flex flex-col sm:flex-row justify-between items-center gap-4 sticky top-0 z-50">
-            <div class="flex items-center gap-6">
-                <div class="flex items-center gap-3 cursor-pointer" @click="currentView = 'products'">
-                    <img src="logo.png" alt="SBE" class="w-10 h-10 object-contain bg-white rounded-lg p-0.5" onerror="this.style.display='none'">
-                    <div>
-                        <h1 class="text-base font-bold tracking-tight">S.B Enterprises</h1>
-                        <p class="text-[10px] text-teal-400 font-bold truncate max-w-[220px]" x-text="'👤 ' + (currentAdminUser?.name || currentAdminUser?.email || 'Admin User')"></p>
+        <!-- Fully Responsive Top Navigation Header -->
+        <header class="bg-slate-800 text-white py-3 px-4 sm:px-6 shadow-md sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
+                <div class="flex items-center justify-between w-full md:w-auto gap-4">
+                    <div class="flex items-center gap-2.5 cursor-pointer" @click="currentView = 'products'">
+                        <img src="logo.png" alt="SBE" class="w-9 h-9 object-contain bg-white rounded-lg p-0.5" onerror="this.style.display='none'">
+                        <div>
+                            <h1 class="text-sm sm:text-base font-bold tracking-tight">S.B Enterprises</h1>
+                            <p class="text-[10px] text-teal-400 font-bold truncate max-w-[180px]" x-text="'👤 ' + (currentAdminUser?.name || currentAdminUser?.email || 'Admin')"></p>
+                        </div>
                     </div>
-                </div>
-                <nav class="flex items-center gap-2">
-                    <button @click="currentView = 'products'" :class="currentView === 'products' ? 'bg-slate-700 text-teal-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-4 py-2 rounded-xl text-xs transition cursor-pointer">📦 Products Catalog</button>
-                    <button @click="currentView = 'orders'" :class="currentView === 'orders' ? 'bg-slate-700 text-teal-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-4 py-2 rounded-xl text-xs transition cursor-pointer">📋 View Customer Orders</button>
-                    <button @click="currentView = 'reviews'; fetchAdminReviews();" :class="currentView === 'reviews' ? 'bg-slate-700 text-amber-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-4 py-2 rounded-xl text-xs transition cursor-pointer">⭐ Reviews Moderation</button>
-                    <button @click="currentView = 'banners'" :class="currentView === 'banners' ? 'bg-slate-700 text-amber-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-4 py-2 rounded-xl text-xs transition cursor-pointer">🎨 Banners Studio</button>
-                </nav>
-            </div>
-            
-            <div class="flex items-center gap-3 flex-wrap justify-end">
-                <button @click="loadAdminData()" class="bg-teal-700 hover:bg-teal-600 text-white font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer">
-                    <span>🔄</span> <span>Refresh Now</span>
-                </button>
-
-                <button @click="showEnquiryQueueModal = true; fetchAdminEnquiries();" class="bg-amber-500 hover:bg-amber-600 transition text-slate-950 font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-2 shadow-sm cursor-pointer animate-pulse">
-                    <span>🔔 New Enquiries:</span> 
-                    <span class="bg-slate-950 text-amber-400 font-black px-2 py-0.5 rounded-full text-[10px]" x-text="enquiriesList.length">0</span>
-                </button>
-
-                <!-- TICKETS & REQUESTS BADGE -->
-                <div @click="currentView = 'orders'; orderStatusFilter = 'CANCELLATION_REQUESTED';" class="bg-amber-600 hover:bg-amber-700 transition text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer">
-                    ⚠️ Tickets / Requests: 
-                    <span class="bg-white text-amber-900 font-black px-2 py-0.5 rounded-full" x-text="getCancellationRequestsCount()">0</span>
-                </div>
-
-                <div @click="currentView = 'orders'; orderStatusFilter = 'PLACED';" class="bg-red-600 hover:bg-red-700 transition text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer">
-                    🚨 New Orders: 
-                    <span class="bg-white text-red-700 font-black px-2 py-0.5 rounded-full" x-text="getPendingOrdersCount()">0</span>
+                    <button @click="logoutAdmin()" class="md:hidden bg-red-500 hover:bg-red-600 text-white font-bold px-3 py-1.5 rounded-xl text-[11px] cursor-pointer">Logout</button>
                 </div>
                 
-                <button @click="logoutAdmin()" class="bg-red-500 hover:bg-red-600 text-white font-bold px-3 py-2 rounded-xl text-xs cursor-pointer">🚪 Logout</button>
+                <nav class="flex items-center gap-1 overflow-x-auto w-full md:w-auto py-1 scrollbar-none">
+                    <button @click="currentView = 'products'" :class="currentView === 'products' ? 'bg-slate-700 text-teal-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-3 py-2 rounded-xl text-xs transition whitespace-nowrap cursor-pointer">📦 Products</button>
+                    <button @click="currentView = 'orders'" :class="currentView === 'orders' ? 'bg-slate-700 text-teal-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-3 py-2 rounded-xl text-xs transition whitespace-nowrap cursor-pointer">📋 Orders</button>
+                    <button @click="currentView = 'reviews'; fetchAdminReviews();" :class="currentView === 'reviews' ? 'bg-slate-700 text-amber-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-3 py-2 rounded-xl text-xs transition whitespace-nowrap cursor-pointer">⭐ Reviews</button>
+                    <button @click="currentView = 'banners'" :class="currentView === 'banners' ? 'bg-slate-700 text-amber-400 font-bold' : 'text-slate-300 hover:text-white'" class="px-3 py-2 rounded-xl text-xs transition whitespace-nowrap cursor-pointer">🎨 Banners</button>
+                </nav>
+
+                <div class="hidden md:flex items-center gap-2 flex-wrap justify-end">
+                    <button @click="loadAdminData()" class="bg-teal-700 hover:bg-teal-600 text-white font-black px-3 py-2 rounded-xl text-xs flex items-center gap-1 shadow-sm cursor-pointer">🔄 Refresh</button>
+                    <button @click="showEnquiryQueueModal = true; fetchAdminEnquiries();" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer animate-pulse">
+                        <span>🔔 Enquiries:</span> <span class="bg-slate-950 text-amber-400 font-black px-1.5 py-0.5 rounded-full text-[10px]" x-text="enquiriesList.length">0</span>
+                    </button>
+                    <div @click="currentView = 'orders'; orderStatusFilter = 'CANCELLATION_REQUESTED';" class="bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-3 py-2 rounded-xl text-xs flex items-center gap-1 shadow-sm cursor-pointer">
+                        ⚠️ Tickets: <span class="bg-white text-amber-900 font-black px-1.5 py-0.5 rounded-full" x-text="getCancellationRequestsCount()">0</span>
+                    </div>
+                    <div @click="currentView = 'orders'; orderStatusFilter = 'PLACED';" class="bg-red-600 hover:bg-red-700 text-white font-extrabold px-3 py-2 rounded-xl text-xs flex items-center gap-1 shadow-sm cursor-pointer">
+                        🚨 Orders: <span class="bg-white text-red-700 font-black px-1.5 py-0.5 rounded-full" x-text="getPendingOrdersCount()">0</span>
+                    </div>
+                    <button @click="logoutAdmin()" class="bg-red-500 hover:bg-red-600 text-white font-bold px-3 py-2 rounded-xl text-xs cursor-pointer">Logout</button>
+                </div>
             </div>
         </header>
 
         <!-- ADD / EDIT PRODUCT MODAL -->
-        <div x-show="showAddProductModal" class="fixed inset-0 z-[9990] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" style="display: none;" x-cloak x-transition>
+        <div x-show="showAddProductModal" class="fixed inset-0 z-[9990] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto" style="display: none;" x-cloak x-transition>
             <div class="bg-white rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden border border-slate-200 my-8">
                 <header class="bg-teal-800 text-white px-6 py-4 flex justify-between items-center">
                     <h3 class="text-xs font-black uppercase tracking-wider text-amber-300" x-text="productForm.id ? '✏️ Edit Catalog Product' : '✨ Register New Product Asset'"></h3>
                     <button @click="showAddProductModal = false" class="text-white font-bold text-sm cursor-pointer">✕ Close</button>
                 </header>
 
-                <form @submit.prevent="saveProductPipeline()" class="p-6 space-y-4 max-h-[80vh] overflow-y-auto text-slate-800">
+                <form @submit.prevent="saveProductPipeline()" class="p-4 sm:p-6 space-y-4 max-h-[80vh] overflow-y-auto text-slate-800">
                     <div class="bg-teal-50 p-3.5 rounded-xl border border-teal-200 flex flex-col sm:flex-row justify-between items-center gap-3">
                         <div>
                             <span class="font-black text-teal-900 text-xs block">🤖 Deep AI Auto-Fill & Smart Margin Analyzer</span>
                             <span class="text-[10px] text-teal-700">Auto-generates multi-paragraph clinical specs, packaging info, and manufacturer details.</span>
                         </div>
-                        <div class="flex gap-2 shrink-0">
-                            <button type="button" @click="aiAutoFillProduct()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-3.5 py-2 rounded-lg text-[11px] uppercase cursor-pointer shadow-xs">✨ Deep AI Auto-Fill</button>
-                            <button type="button" @click="aiSmartMarginAnalyzer()" class="bg-teal-700 hover:bg-teal-800 text-white font-black px-3.5 py-2 rounded-lg text-[11px] uppercase cursor-pointer shadow-xs">📊 Margin Check</button>
+                        <div class="flex gap-2 w-full sm:w-auto shrink-0">
+                            <button type="button" @click="aiAutoFillProduct()" class="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-3.5 py-2 rounded-lg text-[11px] uppercase cursor-pointer shadow-xs">✨ AI Fill</button>
+                            <button type="button" @click="aiSmartMarginAnalyzer()" class="flex-1 sm:flex-none bg-teal-700 hover:bg-teal-800 text-white font-black px-3.5 py-2 rounded-lg text-[11px] uppercase cursor-pointer shadow-xs">📊 Margins</button>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="sm:col-span-2">
                             <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Product Full Name *</label>
-                            <input type="text" x-model="productForm.name" required placeholder="e.g. Poratable DC Xray / Alginate" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
+                            <input type="text" x-model="productForm.name" required placeholder="e.g. Portable DC Xray / Alginate" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none">
                         </div>
                         <div class="sm:col-span-2">
                             <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Brand / Company Name *</label>
@@ -379,9 +420,12 @@
                             <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Available Stock Qty *</label>
                             <input type="number" x-model.number="productForm.stock" required class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none font-bold">
                         </div>
-                        <div>
-                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">HSN Tax Code</label>
-                            <input type="text" x-model="productForm.hsn" placeholder="e.g. 90184900" class="w-full p-2.5 border rounded-xl bg-slate-50 outline-none font-mono">
+                        <div class="sm:col-span-2">
+                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">HSN Tax Code / Barcode</label>
+                            <div class="flex gap-2">
+                                <input type="text" x-model="productForm.hsn" placeholder="e.g. 90184900" class="flex-1 p-2.5 border rounded-xl bg-slate-50 outline-none font-mono">
+                                <button type="button" @click="startCameraScannerForField('hsn')" class="bg-teal-700 hover:bg-teal-800 text-white px-3 py-2 rounded-xl text-xs font-bold shrink-0 cursor-pointer">📷 Scan Barcode</button>
+                            </div>
                         </div>
                         <div>
                             <label class="block mb-1 text-[10px] uppercase font-bold text-slate-500">Warranty Term</label>
@@ -441,16 +485,29 @@
         </div>
 
         <!-- MAIN CONTENT AREA -->
-        <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+        <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 space-y-6">
             
+            <!-- MOBILE QUICK ACTION BADGES ROW -->
+            <div class="grid grid-cols-2 sm:hidden gap-2">
+                <button @click="showEnquiryQueueModal = true; fetchAdminEnquiries();" class="bg-amber-500 text-slate-950 font-black p-2.5 rounded-xl text-[11px] flex items-center justify-center gap-1 shadow-xs">
+                    <span>🔔 Enquiries:</span> <span class="bg-slate-950 text-amber-400 px-1.5 py-0.5 rounded-full text-[10px]" x-text="enquiriesList.length">0</span>
+                </button>
+                <button @click="currentView = 'orders'; orderStatusFilter = 'PLACED';" class="bg-red-600 text-white font-black p-2.5 rounded-xl text-[11px] flex items-center justify-center gap-1 shadow-xs">
+                    <span>🚨 Orders:</span> <span class="bg-white text-red-700 px-1.5 py-0.5 rounded-full text-[10px]" x-text="getPendingOrdersCount()">0</span>
+                </button>
+            </div>
+
             <!-- 1. PRODUCTS CATALOG VIEW -->
             <div x-show="currentView === 'products'" class="grid grid-cols-1 lg:grid-cols-4 gap-6" x-transition>
                 
                 <!-- LEFT SIDEBAR -->
                 <div class="lg:col-span-1 space-y-4">
-                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
                         <button @click="openAddProductModal()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-md cursor-pointer flex items-center justify-center gap-2 text-xs uppercase tracking-wide">
                             ✨ + Add New Product
+                        </button>
+                        <button @click="startCameraScannerForLookup()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 px-4 rounded-xl transition shadow-md cursor-pointer flex items-center justify-center gap-2 text-xs uppercase tracking-wide">
+                            📷 Scan Barcode / QR (Camera)
                         </button>
                         <button @click="exportFullInventoryToExcel()" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-2.5 px-3 rounded-xl transition text-[11px] uppercase tracking-wide cursor-pointer flex items-center justify-center gap-1.5 shadow-xs">
                             📊 Download Full Inventory (.XLSX)
@@ -458,16 +515,16 @@
                     </div>
 
                     <!-- BULK WHATSAPP CAMPAIGN BUTTON CARD -->
-                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-                        <h2 class="text-sm font-black text-slate-700 uppercase tracking-wider border-b pb-2">💬 WhatsApp Marketing</h2>
+                    <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                        <h2 class="text-xs sm:text-sm font-black text-slate-700 uppercase tracking-wider border-b pb-2">💬 WhatsApp Marketing</h2>
                         <button @click="showBulkWhatsAppModal = true" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-3 rounded-xl transition text-[11px] uppercase tracking-wide cursor-pointer flex items-center justify-center gap-1.5 shadow-xs">
                             <span>📢</span> Bulk WhatsApp Broadcast
                         </button>
                     </div>
 
                     <!-- CARD: MONTH & YEAR WISE INVENTORY REPORT DOWNLOAD -->
-                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-                        <h2 class="text-sm font-black text-slate-700 uppercase tracking-wider border-b pb-2">📅 Inventory Reports</h2>
+                    <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                        <h2 class="text-xs sm:text-sm font-black text-slate-700 uppercase tracking-wider border-b pb-2">📅 Inventory Reports</h2>
                         <div class="space-y-2">
                             <div>
                                 <label class="block text-[10px] uppercase font-bold text-slate-500 mb-1">Select Month</label>
@@ -495,8 +552,8 @@
                     </div>
 
                     <!-- CARD: BULK EXCEL IMPORT -->
-                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-                        <h2 class="text-sm font-black text-slate-700 uppercase tracking-wider border-b pb-2">📦 Bulk Excel Import</h2>
+                    <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                        <h2 class="text-xs sm:text-sm font-black text-slate-700 uppercase tracking-wider border-b pb-2">📦 Bulk Excel Import</h2>
                         <button @click="downloadExcelTemplate()" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold py-2 px-3 rounded-xl transition text-[11px] uppercase tracking-wide cursor-pointer flex items-center justify-center gap-1.5 shadow-xs">
                             📥 Download Template
                         </button>
@@ -507,9 +564,9 @@
                     </div>
 
                     <!-- CATEGORY MANAGER -->
-                    <aside class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm h-fit space-y-4" x-data="{ showCategoryManager: false, emojiDropdownOpen: false }">
+                    <aside class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm h-fit space-y-4" x-data="{ showCategoryManager: false, emojiDropdownOpen: false }">
                         <div class="flex justify-between items-center border-b pb-2">
-                            <h2 class="text-sm font-black text-slate-700 uppercase tracking-wider">Category Manager</h2>
+                            <h2 class="text-xs sm:text-sm font-black text-slate-700 uppercase tracking-wider">Category Manager</h2>
                             <button @click="showCategoryManager = !showCategoryManager" class="text-teal-700 hover:underline font-bold text-[11px] cursor-pointer">
                                 <span x-text="showCategoryManager ? 'Hide List ▴' : 'Manage Existing ▾'"></span>
                             </button>
@@ -554,8 +611,8 @@
                     </aside>
                 </div>
 
-                <!-- RIGHT MAIN AREA: CATALOG TABLE WITH LIVE SEARCH & LIVE PRODUCT COUNT -->
-                <section class="lg:col-span-3 bg-white p-5 rounded-2xl border shadow-sm overflow-hidden flex flex-col space-y-4">
+                <!-- RIGHT MAIN AREA: CATALOG WITH RESPONSIVE DESKTOP TABLE & MOBILE CARDS -->
+                <section class="lg:col-span-3 bg-white p-4 sm:p-5 rounded-2xl border shadow-sm flex flex-col space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-center gap-3 border-b pb-4">
                         <h2 class="text-sm font-black text-slate-700 uppercase tracking-wider">
                             ACTIVE CATALOG (<span x-text="filteredCatalogProducts().length"></span> Live Products)
@@ -563,20 +620,21 @@
                         
                         <!-- LIVE SEARCH BAR -->
                         <div class="w-full sm:w-72 relative">
-                            <input type="text" x-model="catalogSearchQuery" placeholder="Search by name, company, or HSN..." class="w-full bg-slate-50 border text-slate-900 placeholder-slate-400 font-medium py-2 pl-4 pr-10 rounded-xl outline-none text-xs focus:border-teal-600">
+                            <input type="text" x-model="catalogSearchQuery" placeholder="Search by barcode, name, company..." class="w-full bg-slate-50 border text-slate-900 placeholder-slate-400 font-medium py-2 pl-4 pr-10 rounded-xl outline-none text-xs focus:border-teal-600">
                             <span class="absolute right-3 top-2.5 text-slate-400 text-sm">🔍</span>
                         </div>
                     </div>
 
-                    <div class="overflow-x-auto">
+                    <!-- DESKTOP TABLE VIEW -->
+                    <div class="hidden md:block overflow-x-auto">
                         <table class="w-full text-left text-xs border-collapse">
                             <thead>
                                 <tr class="bg-slate-50 text-slate-400 uppercase tracking-wider font-bold border-b border-slate-100">
                                     <th class="p-3">Preview</th>
                                     <th class="p-3">Product Name & Company</th>
                                     <th class="p-3">Category</th>
+                                    <th class="p-3">Barcode / HSN</th>
                                     <th class="p-3">Price</th>
-                                    <th class="p-3">GST Slab</th>
                                     <th class="p-3 text-center">Stock</th>
                                     <th class="p-3 text-center">Action</th>
                                 </tr>
@@ -594,10 +652,8 @@
                                             <p class="text-[10px] text-teal-700 font-bold" x-text="'🏢 ' + (item.company || 'General Brand')"></p>
                                         </td>
                                         <td class="p-3 text-slate-500 font-medium" x-text="item.category_name || 'General'"></td>
+                                        <td class="p-3 font-mono font-bold text-slate-600" x-text="item.hsn || 'N/A'"></td>
                                         <td class="p-3 font-extrabold text-teal-700" x-text="'₹' + formatCurrency(item.price)"></td>
-                                        <td class="p-3">
-                                            <span class="bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded font-bold font-mono text-[10px]" x-text="(item.gst_rate || 12) + '% GST'"></span>
-                                        </td>
                                         <td class="p-3 text-center font-bold">
                                             <span :class="Number(item.stock ?? 0) <= 5 ? 'bg-amber-100 text-amber-900 animate-pulse' : 'bg-emerald-100 text-emerald-800'" class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase" x-text="item.stock"></span>
                                         </td>
@@ -610,13 +666,44 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- MOBILE CARD VIEW (Auto-adaptive for phones & tablets) -->
+                    <div class="md:hidden space-y-3">
+                        <template x-for="item in filteredCatalogProducts()" :key="item.id">
+                            <div class="bg-slate-50 border rounded-2xl p-3.5 space-y-2.5 shadow-xs">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 bg-white rounded-xl overflow-hidden border shrink-0 flex items-center justify-center p-0.5 shadow-xs">
+                                            <img :src="getSinglePrimaryImageUrl(item)" class="w-full h-full object-contain mix-blend-multiply" onerror="this.src='https://placehold.co/40?text=No+Img'">
+                                        </div>
+                                        <div>
+                                            <h4 class="font-bold text-slate-900 text-xs" x-text="item.name"></h4>
+                                            <p class="text-[10px] text-teal-700 font-bold" x-text="'🏢 ' + (item.company || 'General')"></p>
+                                            <p class="text-[10px] font-mono text-slate-500" x-text="`Barcode: ${item.hsn || 'N/A'}`"></p>
+                                        </div>
+                                    </div>
+                                    <span :class="Number(item.stock ?? 0) <= 5 ? 'bg-amber-100 text-amber-900 animate-pulse' : 'bg-emerald-100 text-emerald-800'" class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase shrink-0" x-text="`Stock: ${item.stock}`"></span>
+                                </div>
+                                <div class="flex justify-between items-center pt-2 border-t border-slate-200">
+                                    <div>
+                                        <span class="text-[10px] text-slate-400 block uppercase font-bold">Price</span>
+                                        <span class="font-extrabold text-teal-700 text-sm" x-text="'₹' + formatCurrency(item.price)"></span>
+                                    </div>
+                                    <div class="space-x-1">
+                                        <button @click="editProductRecord(item)" class="bg-teal-50 text-teal-800 font-bold py-1.5 px-3 rounded-lg border border-teal-200 text-xs cursor-pointer">Edit</button>
+                                        <button @click="confirmDeleteProduct(item)" class="bg-red-50 text-red-600 font-bold py-1.5 px-3 rounded-lg border border-red-200 text-xs cursor-pointer">Delete</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
                 </section>
             </div>
 
             <!-- 2. ORDERS VIEW -->
-            <div x-show="currentView === 'orders'" class="bg-white border p-6 rounded-2xl shadow-sm space-y-4" style="display: none;" x-transition>
+            <div x-show="currentView === 'orders'" class="bg-white border p-4 sm:p-6 rounded-2xl shadow-sm space-y-4" style="display: none;" x-transition>
                 <div class="flex flex-col sm:flex-row justify-between items-center border-b pb-4 gap-3">
-                    <h2 class="text-base font-black text-slate-800 uppercase">📋 Customer Orders History & Bulk Refund Settlement</h2>
+                    <h2 class="text-sm sm:text-base font-black text-slate-800 uppercase">📋 Customer Orders History & Bulk Refund Settlement</h2>
                     
                     <div class="flex flex-wrap items-center gap-2">
                         <select x-model="orderStatusFilter" class="p-2 border rounded-xl font-bold bg-slate-50 text-xs outline-none cursor-pointer">
@@ -664,66 +751,68 @@
                     </div>
                 </div>
 
-                <table class="w-full text-left text-xs border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50 text-slate-400 font-bold border-b">
-                            <th class="p-3">Order Ref</th>
-                            <th class="p-3">Date</th>
-                            <th class="p-3">Doctor / Clinic</th>
-                            <th class="p-3">Payment Mode</th>
-                            <th class="p-3">Total Amount</th>
-                            <th class="p-3 text-center">Status Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template x-for="ord in filteredOrdersList()" :key="ord.id">
-                            <tr class="border-b">
-                                <td class="p-3 font-mono font-bold" x-text="`#SBE-${ord.id}`"></td>
-                                <td class="p-3 text-slate-500 font-mono" x-text="formatDateDisplay(ord.created_at)"></td>
-                                <td class="p-3 font-bold" x-text="ord.doctor_name || 'Dr. Verified Practitioner'"></td>
-                                <td class="p-3">
-                                    <span class="bg-slate-100 text-slate-800 border px-2 py-0.5 rounded font-mono font-bold uppercase text-[10px]" x-text="ord.payment_method || 'ONLINE'"></span>
-                                </td>
-                                <td class="p-3 font-black text-teal-800 font-mono" x-text="'₹' + formatCurrency(ord.total_amount)"></td>
-                                <td class="p-3 text-center">
-                                    <template x-if="['CANCELLATION_REQUESTED', 'REFUND_REQUESTED', 'REPLACEMENT_REQUESTED'].includes((ord.status || '').toUpperCase())">
-                                        <div class="space-y-1.5 bg-amber-50 p-2.5 rounded-xl border border-amber-300">
-                                            <p class="text-[9px] font-bold text-amber-900 leading-tight">Ticket / Reason: <span class="italic text-slate-800" x-text="ord.cancellation_reason || 'Customer request'"></span></p>
-                                            <div class="flex gap-1 justify-center">
-                                                <button @click="approveOrderCancellation(ord.id)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3 py-1 rounded-lg text-[9px] uppercase shadow cursor-pointer">Accept & Process</button>
-                                                <button @click="rejectOrderCancellation(ord.id)" class="bg-red-600 hover:bg-red-700 text-white font-black px-3 py-1 rounded-lg text-[9px] uppercase shadow cursor-pointer">Reject Request</button>
-                                            </div>
-                                        </div>
-                                    </template>
-
-                                    <template x-if="!['CANCELLATION_REQUESTED', 'REFUND_REQUESTED', 'REPLACEMENT_REQUESTED'].includes((ord.status || '').toUpperCase())">
-                                        <div>
-                                            <select :value="(ord.status || 'PLACED').toUpperCase()" @change="updateOrderStatus(ord, $event.target.value)" class="p-1.5 border rounded-xl font-bold cursor-pointer outline-none bg-slate-50">
-                                                <option value="PLACED">⏳ PLACED</option>
-                                                <option value="PROCESSING">⚙️ PROCESSING</option>
-                                                <option value="DISPATCHED">🚚 DISPATCHED</option>
-                                                <option value="OUT FOR DELIVERY">🏃‍♂️ OUT FOR DELIVERY</option>
-                                                <option value="DELIVERED">✅ DELIVERED</option>
-                                                <option value="CANCELLED">❌ CANCELLED</option>
-                                                <option value="REFUNDED">💰 REFUNDED</option>
-                                            </select>
-                                            <template x-if="(ord.status || '').toUpperCase() === 'CANCELLED' && ord.cancellation_reason">
-                                                <p class="text-[9px] text-slate-500 mt-1 italic" x-text="`Reason (${ord.cancelled_by || 'Admin'}): ${ord.cancellation_reason}`"></p>
-                                            </template>
-                                        </div>
-                                    </template>
-                                </td>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-400 font-bold border-b">
+                                <th class="p-3">Order Ref</th>
+                                <th class="p-3">Date</th>
+                                <th class="p-3">Doctor / Clinic</th>
+                                <th class="p-3">Payment Mode</th>
+                                <th class="p-3">Total Amount</th>
+                                <th class="p-3 text-center">Status Action</th>
                             </tr>
-                        </template>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <template x-for="ord in filteredOrdersList()" :key="ord.id">
+                                <tr class="border-b">
+                                    <td class="p-3 font-mono font-bold" x-text="`#SBE-${ord.id}`"></td>
+                                    <td class="p-3 text-slate-500 font-mono" x-text="formatDateDisplay(ord.created_at)"></td>
+                                    <td class="p-3 font-bold" x-text="ord.doctor_name || 'Dr. Verified Practitioner'"></td>
+                                    <td class="p-3">
+                                        <span class="bg-slate-100 text-slate-800 border px-2 py-0.5 rounded font-mono font-bold uppercase text-[10px]" x-text="ord.payment_method || 'ONLINE'"></span>
+                                    </td>
+                                    <td class="p-3 font-black text-teal-800 font-mono" x-text="'₹' + formatCurrency(ord.total_amount)"></td>
+                                    <td class="p-3 text-center">
+                                        <template x-if="['CANCELLATION_REQUESTED', 'REFUND_REQUESTED', 'REPLACEMENT_REQUESTED'].includes((ord.status || '').toUpperCase())">
+                                            <div class="space-y-1.5 bg-amber-50 p-2.5 rounded-xl border border-amber-300">
+                                                <p class="text-[9px] font-bold text-amber-900 leading-tight">Ticket / Reason: <span class="italic text-slate-800" x-text="ord.cancellation_reason || 'Customer request'"></span></p>
+                                                <div class="flex gap-1 justify-center">
+                                                    <button @click="approveOrderCancellation(ord.id)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3 py-1 rounded-lg text-[9px] uppercase shadow cursor-pointer">Accept & Process</button>
+                                                    <button @click="rejectOrderCancellation(ord.id)" class="bg-red-600 hover:bg-red-700 text-white font-black px-3 py-1 rounded-lg text-[9px] uppercase shadow cursor-pointer">Reject Request</button>
+                                                </div>
+                                            </div>
+                                        </template>
+
+                                        <template x-if="!['CANCELLATION_REQUESTED', 'REFUND_REQUESTED', 'REPLACEMENT_REQUESTED'].includes((ord.status || '').toUpperCase())">
+                                            <div>
+                                                <select :value="(ord.status || 'PLACED').toUpperCase()" @change="updateOrderStatus(ord, $event.target.value)" class="p-1.5 border rounded-xl font-bold cursor-pointer outline-none bg-slate-50">
+                                                    <option value="PLACED">⏳ PLACED</option>
+                                                    <option value="PROCESSING">⚙️ PROCESSING</option>
+                                                    <option value="DISPATCHED">🚚 DISPATCHED</option>
+                                                    <option value="OUT FOR DELIVERY">🏃‍♂️ OUT FOR DELIVERY</option>
+                                                    <option value="DELIVERED">✅ DELIVERED</option>
+                                                    <option value="CANCELLED">❌ CANCELLED</option>
+                                                    <option value="REFUNDED">💰 REFUNDED</option>
+                                                </select>
+                                                <template x-if="(ord.status || '').toUpperCase() === 'CANCELLED' && ord.cancellation_reason">
+                                                    <p class="text-[9px] text-slate-500 mt-1 italic" x-text="`Reason (${ord.cancelled_by || 'Admin'}): ${ord.cancellation_reason}`"></p>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- 3. REVIEWS MODERATION VIEW -->
-            <div x-show="currentView === 'reviews'" class="bg-white border p-6 rounded-2xl shadow-sm space-y-4" style="display: none;" x-transition>
+            <div x-show="currentView === 'reviews'" class="bg-white border p-4 sm:p-6 rounded-2xl shadow-sm space-y-4" style="display: none;" x-transition>
                 <div class="flex justify-between items-center border-b pb-4">
                     <div>
-                        <h2 class="text-base font-black text-slate-900 uppercase">⭐ Reviews Moderation & Management</h2>
+                        <h2 class="text-sm sm:text-base font-black text-slate-900 uppercase">⭐ Reviews Moderation & Management</h2>
                         <p class="text-xs text-slate-500 mt-0.5">Inspect doctor reviews, edit inappropriate comments, or delete spam reviews.</p>
                     </div>
                     <button @click="fetchAdminReviews()" class="bg-teal-700 hover:bg-teal-800 text-white font-black px-4 py-2 rounded-xl text-xs uppercase cursor-pointer shadow">Refresh Reviews</button>
@@ -777,13 +866,13 @@
             </div>
 
             <!-- 4. BANNERS STUDIO VIEW -->
-            <div x-show="currentView === 'banners'" class="bg-white border p-6 rounded-2xl shadow-sm space-y-6" style="display: none;" x-transition>
+            <div x-show="currentView === 'banners'" class="bg-white border p-4 sm:p-6 rounded-2xl shadow-sm space-y-6" style="display: none;" x-transition>
                 <div class="flex justify-between items-center border-b pb-4">
-                    <h2 class="text-base font-black text-slate-900 uppercase">🎨 Store Banners Studio</h2>
+                    <h2 class="text-sm sm:text-base font-black text-slate-900 uppercase">🎨 Store Banners Studio</h2>
                     <button @click="openNewBannerModal()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs uppercase shadow-md cursor-pointer">✨ + Create Store Banner</button>
                 </div>
 
-                <div x-show="showBannerFormModal" class="bg-slate-50 border border-amber-300 p-5 rounded-2xl space-y-4 shadow-sm" x-transition>
+                <div x-show="showBannerFormModal" class="bg-slate-50 border border-amber-300 p-4 sm:p-5 rounded-2xl space-y-4 shadow-sm" x-transition>
                     <div class="flex justify-between items-center border-b pb-2">
                         <h3 class="font-black text-slate-900 text-xs uppercase" x-text="bannerForm.id ? '✏️ Edit Banner' : '✨ New Banner Setup'"></h3>
                         <button @click="showBannerFormModal = false" class="text-slate-400 font-bold text-sm cursor-pointer">✕ Close</button>
@@ -859,31 +948,33 @@
                     </form>
                 </div>
 
-                <table class="w-full text-left border-collapse text-xs">
-                    <thead>
-                        <tr class="bg-slate-50 text-slate-400 font-bold border-b">
-                            <th class="p-3">Title</th>
-                            <th class="p-3">Duration</th>
-                            <th class="p-3">Status</th>
-                            <th class="p-3 text-center">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template x-for="b in banners" :key="b.id">
-                            <tr class="border-b">
-                                <td class="p-3 font-bold" x-text="b.title"></td>
-                                <td class="p-3 font-mono text-slate-500" x-text="`${b.start_date || 'Any'} to ${b.end_date || 'Any'}`"></td>
-                                <td class="p-3">
-                                    <button @click="toggleBannerActive(b)" class="px-2.5 py-1 rounded-full font-black text-[9px] uppercase cursor-pointer" :class="b.active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'" x-text="b.active ? 'Active' : 'Disabled'"></button>
-                                </td>
-                                <td class="p-3 text-center space-x-1">
-                                    <button @click="editBannerRecord(b)" class="bg-teal-50 text-teal-800 font-bold px-2 py-1 rounded border cursor-pointer">Edit</button>
-                                    <button @click="deleteBannerRecord(b.id)" class="bg-red-50 text-red-600 font-bold px-2 py-1 rounded cursor-pointer">Delete</button>
-                                </td>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-400 font-bold border-b">
+                                <th class="p-3">Title</th>
+                                <th class="p-3">Duration</th>
+                                <th class="p-3">Status</th>
+                                <th class="p-3 text-center">Action</th>
                             </tr>
-                        </template>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <template x-for="b in banners" :key="b.id">
+                                <tr class="border-b">
+                                    <td class="p-3 font-bold" x-text="b.title"></td>
+                                    <td class="p-3 font-mono text-slate-500" x-text="`${b.start_date || 'Any'} to ${b.end_date || 'Any'}`"></td>
+                                    <td class="p-3">
+                                        <button @click="toggleBannerActive(b)" class="px-2.5 py-1 rounded-full font-black text-[9px] uppercase cursor-pointer" :class="b.active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'" x-text="b.active ? 'Active' : 'Disabled'"></button>
+                                    </td>
+                                    <td class="p-3 text-center space-x-1">
+                                        <button @click="editBannerRecord(b)" class="bg-teal-50 text-teal-800 font-bold px-2 py-1 rounded border cursor-pointer">Edit</button>
+                                        <button @click="deleteBannerRecord(b.id)" class="bg-red-50 text-red-600 font-bold px-2 py-1 rounded cursor-pointer">Delete</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
         </main>
@@ -912,6 +1003,11 @@
                 showEnquiryQueueModal: false,
                 showEditReviewModal: false,
                 showBulkWhatsAppModal: false,
+                showCameraScannerModal: false,
+                cameraScanStatusText: 'Initializing camera scanner...',
+                html5QrCode: null,
+                activeScannerTargetField: null,
+                
                 orderStatusFilter: 'ALL',
                 orderMonthFilter: 'ALL',
                 orderYearFilter: 'ALL',
@@ -956,10 +1052,118 @@
                             this.currentAdminUser = JSON.parse(savedUser);
                             this.isAdminLoggedIn = true;
                             this.loadAdminData();
-                            return;
                         } catch(e) {}
                     }
-                    this.logoutAdmin();
+                    this.initBarcodeWedgeListener();
+                },
+
+                initBarcodeWedgeListener() {
+                    let barcodeBuffer = '';
+                    let lastKeyTime = Date.now();
+
+                    window.addEventListener('keypress', (e) => {
+                        if (!this.isAdminLoggedIn) return;
+                        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+                        const activeType = document.activeElement ? document.activeElement.type : '';
+                        if (activeTag === 'textarea' || activeType === 'password') return;
+
+                        const currentTime = Date.now();
+                        if (currentTime - lastKeyTime > 100) {
+                            barcodeBuffer = '';
+                        }
+                        lastKeyTime = currentTime;
+
+                        if (e.key === 'Enter') {
+                            if (barcodeBuffer.length >= 3) {
+                                const scannedCode = barcodeBuffer.trim();
+                                barcodeBuffer = '';
+                                this.handleScannedBarcodeCode(scannedCode);
+                            }
+                        } else {
+                            barcodeBuffer += e.key;
+                        }
+                    });
+                },
+
+                handleScannedBarcodeCode(code) {
+                    if (this.showAddProductModal) {
+                        this.productForm.hsn = code;
+                        alert(`📷 Barcode Scanned & Filled: ${code}`);
+                    } else {
+                        this.catalogSearchQuery = code;
+                        this.currentView = 'products';
+                    }
+                },
+
+                startCameraScannerForLookup() {
+                    this.activeScannerTargetField = 'lookup';
+                    this.showCameraScannerModal = true;
+                    this.cameraScanStatusText = "Position barcode inside camera frame...";
+                    this.$nextTick(() => {
+                        this.initHtml5QrCodeScanner();
+                    });
+                },
+
+                startCameraScannerForField(field) {
+                    this.activeScannerTargetField = field;
+                    this.showCameraScannerModal = true;
+                    this.cameraScanStatusText = "Position barcode inside camera frame...";
+                    this.$nextTick(() => {
+                        this.initHtml5QrCodeScanner();
+                    });
+                },
+
+                initHtml5QrCodeScanner() {
+                    if (this.html5QrCode) {
+                        try { this.html5QrCode.stop(); } catch(e) {}
+                    }
+                    this.html5QrCode = new Html5Qrcode("interactive-camera-scanner");
+                    const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+                    
+                    this.html5QrCode.start(
+                        { facingMode: "environment" }, 
+                        config, 
+                        (decodedText) => {
+                            this.onCameraScanSuccess(decodedText);
+                        },
+                        (errorMessage) => {}
+                    ).catch(err => {
+                        this.cameraScanStatusText = "Camera access error or permission denied.";
+                    });
+                },
+
+                onCameraScanSuccess(decodedText) {
+                    this.stopCameraScanner();
+                    if (this.activeScannerTargetField === 'hsn') {
+                        this.productForm.hsn = decodedText;
+                        alert(`✅ Barcode Scanned: ${decodedText}`);
+                    } else {
+                        this.catalogSearchQuery = decodedText;
+                        this.currentView = 'products';
+                        
+                        const found = this.products.find(p => p.hsn === decodedText || p.name.toLowerCase().includes(decodedText.toLowerCase()));
+                        if (found) {
+                            alert(`✅ Found Product: ${found.name} (₹${found.price})`);
+                        } else {
+                            alert(`Scanned Barcode: ${decodedText} (No exact catalog match found).`);
+                        }
+                    }
+                },
+
+                stopCameraScanner() {
+                    if (this.html5QrCode) {
+                        try {
+                            this.html5QrCode.stop().then(() => {
+                                this.showCameraScannerModal = false;
+                            }).catch(() => {
+                                this.showCameraScannerModal = false;
+                            });
+                        } catch(e) {
+                            this.showCameraScannerModal = false;
+                        }
+                    } else {
+                        this.showCameraScannerModal = false;
+                    }
                 },
 
                 async loadAdminData() {
@@ -1163,7 +1367,7 @@
                         'Price (INR)': p.price,
                         'Stock Available': p.stock,
                         'GST Slab': `${p.gst_rate}%`,
-                        'HSN Code': p.hsn,
+                        'HSN Code / Barcode': p.hsn,
                         'Manufacturer Info': p.manufacturer_info || 'S.B. Enterprises, Bank More, Dhanbad',
                         'Uploaded Date': p.created_at ? new Date(p.created_at).toLocaleDateString('en-GB') : 'N/A'
                     }));
@@ -1219,7 +1423,7 @@
                         delay += 700;
                     });
 
-                    alert(`🚀 Initiated broadcast to ${numbers.length} doctor(s)! Each chat is opening with your message. (Image copied to clipboard: press Ctrl+V to paste).`);
+                    alert(`🚀 Initiated broadcast to ${numbers.length} doctor(s)! Each chat is opening with your message.`);
                     this.showBulkWhatsAppModal = false;
                     this.bulkWaForm = { numbers: '', message: '', imageFileBase64: '' };
                 },
@@ -1434,7 +1638,7 @@
                         "Price": 2499,
                         "Stock": 15,
                         "GST Slab": 12,
-                        "HSN Code": "90184900",
+                        "HSN Code / Barcode": "90184900",
                         "Warranty Months": 12,
                         "Mfg Date": "2026-01-15",
                         "Exp Date": "2028-01-15",
@@ -1542,7 +1746,7 @@
                                 fd.append('price', row['Price'] || 0);
                                 fd.append('stock', row['Stock'] || 10);
                                 fd.append('gst_rate', row['GST Slab'] || 5);
-                                fd.append('hsn', row['HSN Code'] || 'AL0001');
+                                fd.append('hsn', row['HSN Code / Barcode'] || row['HSN Code'] || 'AL0001');
                                 fd.append('warranty_months', row['Warranty Months'] || 0);
                                 fd.append('has_warranty', Number(row['Warranty Months']) > 0);
                                 fd.append('mfg_date', row['Mfg Date'] || '');
@@ -1597,27 +1801,107 @@
                 },
 
                 async updateOrderStatus(ord, newStatus) {
-                    try {
-                        if (newStatus === 'CANCELLED') {
-                            const reason = prompt(`Reason for cancelling Order #${ord.id} from admin side:`);
-                            if (reason === null) return;
-
+                    if (newStatus === 'CANCELLED') {
+                        const reason = prompt(`Reason for cancelling Order #${ord.id} from admin side:`);
+                        if (reason === null) return;
+                
+                        try {
                             await fetch(`${API_BASE}/orders/${ord.id}/cancel-admin`, {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ reason: reason || 'Cancelled by Admin' })
                             });
-                        } else {
-                            await fetch(`${API_BASE}/orders/${ord.id}/status`, {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ status: newStatus })
-                            });
+                            ord.status = 'CANCELLED';
+                            await this.fetchIncomingOrders();
+                            alert(`Order #${ord.id} status updated to: CANCELLED`);
+                        } catch(e) {
+                            alert("Error connecting to server for cancellation.");
                         }
-                        await this.fetchIncomingOrders();
-                        alert(`Order #${ord.id} status updated to: ${newStatus}`);
-                    } catch(e) { 
-                        alert("Error connecting to server for status update."); 
+                        return;
+                    }
+                
+                    if (newStatus === 'DISPATCHED') {
+                        let items = [];
+                        try { items = typeof ord.items === 'string' ? JSON.parse(ord.items) : (ord.items || []); } catch(e) { items = []; }
+                        
+                        const warrantyItems = items.filter(it => it.has_warranty === true || Number(it.warranty_months) > 0);
+
+                        if (warrantyItems.length > 0) {
+                            this.activeOrderForSerial = ord;
+                            this.targetNextStatus = newStatus;
+                            this.serialModalGroups = warrantyItems.map(it => ({
+                                id: it.id,
+                                name: it.name,
+                                qty: it.qty || 1,
+                                serial_no: it.serial_no && it.serial_no !== 'NA' ? it.serial_no : ''
+                            }));
+                            this.showSerialModal = true;
+                            return;
+                        }
+                    }
+                
+                    const oldStatus = ord.status;
+                    ord.status = newStatus;
+                
+                    try {
+                        const res = await fetch(`${API_BASE}/orders/${ord.id}/status`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: newStatus })
+                        });
+                
+                        if (!res.ok) {
+                            ord.status = oldStatus;
+                            alert("Failed to sync status with database.");
+                        } else {
+                            await this.fetchIncomingOrders();
+                        }
+                    } catch(e) {
+                        ord.status = oldStatus;
+                        alert("Error connecting to server for status update.");
+                    }
+                },
+
+                async submitSerialsAndDispatch() {
+                    if (!this.activeOrderForSerial) return;
+
+                    for (let g of this.serialModalGroups) {
+                        if (!g.serial_no || !g.serial_no.trim()) {
+                            alert(`Please enter a serial number for ${g.name}`);
+                            return;
+                        }
+                    }
+
+                    try {
+                        let items = [];
+                        try { items = typeof this.activeOrderForSerial.items === 'string' ? JSON.parse(this.activeOrderForSerial.items) : (this.activeOrderForSerial.items || []); } catch(e) { items = []; }
+
+                        items = items.map(it => {
+                            const match = this.serialModalGroups.find(g => g.id === it.id);
+                            if (match) {
+                                it.serial_no = match.serial_no.trim();
+                            }
+                            return it;
+                        });
+
+                        const res = await fetch(`${API_BASE}/orders/${this.activeOrderForSerial.id}/dispatch-serials`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                status: 'DISPATCHED',
+                                items: items
+                            })
+                        });
+
+                        if (res.ok) {
+                            this.showSerialModal = false;
+                            alert(`Order #${this.activeOrderForSerial.id} dispatched successfully with serial numbers saved!`);
+                            await this.fetchIncomingOrders();
+                        } else {
+                            alert("Failed to save serial numbers and dispatch order.");
+                        }
+                    } catch (err) {
+                        alert("Server error: " + err.message);
                     }
                 },
 
@@ -1776,7 +2060,7 @@
                         'Price (INR)': p.price,
                         'Stock Available': p.stock,
                         'GST Slab': `${p.gst_rate}%`,
-                        'HSN Code': p.hsn || '',
+                        'HSN Code / Barcode': p.hsn || '',
                         'Category': p.category_name || 'General',
                         'Manufacturer Info': p.manufacturer_info || 'S.B. Enterprises, Bank More, Dhanbad',
                         'Warranty': p.has_warranty ? `${p.warranty_months} Months` : 'None',
@@ -1802,7 +2086,7 @@
                 },
 
                 getCancellationRequestsCount() {
-                    return this.orders.filter(o => ['CANCELLATION_REQUESTED', 'REFUND_REQUESTED', 'REPLACEMENT_REQUESTED'].includes((o.status || '').toUpperCase())).length;
+                    return this.orders.filter(o => ['CANCELLATION_REQUESTED', 'REFND_REQUESTED', 'REFUND_REQUESTED', 'REPLACEMENT_REQUESTED'].includes((o.status || '').toUpperCase())).length;
                 },
 
                 formatCurrency(val) { return new Intl.NumberFormat('en-IN').format(val || 0); },
